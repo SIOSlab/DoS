@@ -20,6 +20,7 @@ try:
 except:
     import pickle
 from ortools.linear_solver import pywraplp
+import matplotlib.pyplot as plt
 
 def DoS_calc(path, abins=100, Rbins=30, maxTime=365.0):
     '''Calculates depth of search values for a given input json script for 
@@ -268,7 +269,7 @@ def DoS_calc(path, abins=100, Rbins=30, maxTime=365.0):
     DoS_occ['Fstars'] = DoS['Fstars']*occ_rates['Fstars']
     DoS_occ['Entire'] = DoS_occ['Mstars']+DoS_occ['Kstars']+DoS_occ['Gstars']+DoS_occ['Fstars']
     result['DoS_occ'] = DoS_occ
-
+    print 'dMag: %r' % (-2.5*np.log10(Cmin))
     return result
 
 def one_DoS_grid(a,R,p,smin,smax,Cmin):
@@ -649,3 +650,66 @@ def find_occurrence(Mass,ddP,ddR,R,P,Matrix,aedges,Redges,fa,amin):
         etas[:,i] = Rvals*fac2/fac1
     
     return etas
+
+def plot_dos(targ,name,dat,path):
+    '''Plots depth of search as a filled contour plot with contour lines
+    
+    Args:
+        targ (str):
+            string indicating which key to access from depth of search results
+            dictionary
+        name (str):
+            string indicating what to put in title of figure
+        dat (dict):
+            depth of search results dictionary from DoS_calc
+        path (str):
+            desired path to save figure (pdf)
+    
+    '''
+    
+    acents = 0.5*(dat['aedges'][1:]+dat['aedges'][:-1])
+    Rcents = 0.5*(dat['Redges'][1:]+dat['Redges'][:-1])
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cs = ax.contourf(acents,Rcents,dat['DoS'][targ])
+    cs2 = ax.contour(acents,Rcents,dat['DoS'][targ],levels=cs.levels[1:])
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('a (AU)')
+    ax.set_ylabel('R ($R_\oplus$)')
+    ax.set_title('Depth of Search - '+name+' ('+str(dat['NumObs'][targ])+')')
+    cbar = fig.colorbar(cs)
+    ax.clabel(cs2, fmt='%2.1f', colors='w')
+    fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
+
+def plot_nplan(targ,name,dat,path):
+    '''Plots depth of search convolved with occurrence rates as a filled 
+    contour plot with contour lines
+    
+    Args:
+        targ (str):
+            string indicating which key to access from depth of search results
+            dictionary
+        name (str):
+            string indicating what to put in title of figure
+        dat (dict):
+            depth of search results dictionary from DoS_calc
+        path (str):
+            desired path to save figure (pdf)
+            
+    '''
+    
+    acents = 0.5*(dat['aedges'][1:]+dat['aedges'][:-1])
+    Rcents = 0.5*(dat['Redges'][1:]+dat['Redges'][:-1])
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    cs = ax.contourf(acents,Rcents,dat['DoS_occ'][targ])
+    cs2 = ax.contour(acents,Rcents,dat['DoS_occ'][targ],levels=cs.levels[1:])
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('a (AU)')
+    ax.set_ylabel('R ($R_\oplus$)')
+    ax.set_title('Number of Planets - '+name+' ('+str(dat['NumObs'][targ])+')')
+    cbar = fig.colorbar(cs)
+    ax.clabel(cs2, fmt='%3.2f', colors='w')
+    fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
