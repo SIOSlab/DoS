@@ -1,7 +1,7 @@
 # DoS
 Depth of Search
 
-This Python package calculates the depth of search on a grid of semi-major axis and planetary radius for a selected target list. The primary function is ```DoS_calc.``` ```DoS_calc``` requires the following packages:
+This Python package calculates the depth of search on a grid of semi-major axis and planetary radius for a selected target list. The ```DoSFuncs``` class object requires the following packages:
 
 - ```numpy```
 - ```os```
@@ -42,6 +42,7 @@ Methods for quickly displaying depth of search results and saving them to disk a
 
 ##### ```plot_dos```
 Plots the depth of search as a filled contour plot with contour lines
+
 Args:
 - ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'Entire')
 - ```name``` -> string indicating what to include in figure title (e.g., 'All Stars')
@@ -49,6 +50,7 @@ Args:
 
 ##### ```plot_nplan```
 Plots the depth of search convolved with occurrence rates as a filled contour plot with contour lines
+
 Args:
 - ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'Mstars')
 - ```name``` -> string indicating what to include in figure title (e.g., 'M Stars')
@@ -56,6 +58,7 @@ Args:
 
 ##### ```save_results```
 Saves the results and ```EXOSIMS.MissionSim``` outspec as a pickled dictionary to disk
+
 Args:
 - ```directory``` -> string for directory path to save results
 
@@ -63,6 +66,7 @@ Results are saved in directory+'/results.DoS'
 
 ##### ```save_json```
 Saves the output json script to disk
+
 Args:
 - ```directory``` -> string for directory path to save json script
 
@@ -70,6 +74,7 @@ Results are saved in directory+'/DoS.json'
 
 ##### ```save_csvs```
 Saves results as individual csv files to disk
+
 Args:
 - ```directory``` -> string for directory path to save results
 
@@ -80,9 +85,3 @@ Results are saved as:
 - '.../DoS_Entire.csv', etc
 - '.../occ_rates_Mstars.csv', etc
 - '.../DoS_occ_Gstars.csv', etc
-##### ```save_json```
-Saves the json file used to generate results to disk
-Args:
-- ```directory``` -> string for directory path to save file
-
-json script is saved as directory+'/DoS.json'
