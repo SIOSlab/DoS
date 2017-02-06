@@ -280,7 +280,6 @@ class DoSFuncs(object):
         DoS_occ['Fstars'] = DoS['Fstars']*occ_rates['Fstars']
         DoS_occ['Entire'] = DoS_occ['Mstars']+DoS_occ['Kstars']+DoS_occ['Gstars']+DoS_occ['Fstars']
         self.result['DoS_occ'] = DoS_occ
-        print 'dMag: %r' % (-2.5*np.log10(Cmin))
         
         # store MissionSim output specification dictionary
         self.outspec = self.sim.genOutSpec()
@@ -680,11 +679,20 @@ class DoSFuncs(object):
         '''
         
         acents = 0.5*(self.result['aedges'][1:]+self.result['aedges'][:-1])
+        a = np.hstack((self.result['aedges'][0],acents,self.result['aedges'][-1]))
+        a = np.around(a,4)
         Rcents = 0.5*(self.result['Redges'][1:]+self.result['Redges'][:-1])
+        R = np.hstack((self.result['Redges'][0],Rcents,self.result['Redges'][-1]))
+        R = np.around(R,4)
+        DoS = self.result['DoS'][targ]
+        DoS = np.insert(DoS, 0, DoS[:,0], axis=1)
+        DoS = np.insert(DoS, -1, DoS[:,-1], axis=1)
+        DoS = np.insert(DoS, 0, DoS[0,:], axis=0)
+        DoS = np.insert(DoS, -1, DoS[-1,:], axis=0)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        cs = ax.contourf(acents,Rcents,self.result['DoS'][targ])
-        cs2 = ax.contour(acents,Rcents,self.result['DoS'][targ],levels=cs.levels[1:])
+        cs = ax.contourf(a,R,DoS)
+        cs2 = ax.contour(a,R,DoS,levels=cs.levels[1:])
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlabel('a (AU)')
@@ -712,11 +720,20 @@ class DoSFuncs(object):
         '''
         
         acents = 0.5*(self.result['aedges'][1:]+self.result['aedges'][:-1])
+        a = np.hstack((self.result['aedges'][0],acents,self.result['aedges'][-1]))
+        a = np.around(a,4)
         Rcents = 0.5*(self.result['Redges'][1:]+self.result['Redges'][:-1])
+        R = np.hstack((self.result['Redges'][0],Rcents,self.result['Redges'][-1]))
+        R = np.around(R,4)
+        DoS_occ = self.result['DoS_occ'][targ]
+        DoS_occ = np.insert(DoS_occ, 0, DoS_occ[:,0], axis=1)
+        DoS_occ = np.insert(DoS_occ, -1, DoS_occ[:,-1], axis=1)
+        DoS_occ = np.insert(DoS_occ, 0, DoS_occ[0,:], axis=0)
+        DoS_occ = np.insert(DoS_occ, -1, DoS_occ[-1,:], axis=0)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        cs = ax.contourf(acents,Rcents,self.result['DoS_occ'][targ])
-        cs2 = ax.contour(acents,Rcents,self.result['DoS_occ'][targ],levels=cs.levels[1:])
+        cs = ax.contourf(a,R,DoS_occ)
+        cs2 = ax.contour(a,R,DoS_occ,levels=cs.levels[1:])
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlabel('a (AU)')
