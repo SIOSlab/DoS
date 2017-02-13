@@ -203,34 +203,42 @@ class DoSFuncs(object):
         acents = 0.5*(aedges[1:]+aedges[:-1])
         Rcents = 0.5*(Redges[1:]+Redges[:-1])
         aa, RR = np.meshgrid(acents,Rcents)
+        
+        # temporary fix: one_DoS_grid calculates the completeness for a given
+        # semi-major axis and planetary radius, want the integrated total for
+        # each bin. This is calculated by assuming the one_DoS_grid value is
+        # the average value in the bin and multiplying by the bin area
+        ae = aedges[1:]-aedges[:-1]
+        Re = (Redges[1:]-Redges[:-1])/const.R_earth.to('AU').value
+        aae, RRe = np.meshgrid(ae,Re)
     
         # get depth of search for each stellar type
         DoS = {}
         print 'Beginning depth of search calculations for observed M stars'
         if len(Mlist) > 0:
             DoS['Mstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Mlist], \
-               smax[Mlist], self.sim.TargetList.dist[Mlist].to('pc').value, contrast)
+               smax[Mlist], self.sim.TargetList.dist[Mlist].to('pc').value, contrast)*aae*RRe
         else:
             DoS['Mstars'] = np.zeros(aa.shape)
         print 'Finished depth of search calculations for observed M stars'
         print 'Beginning depth of search calculations for observed K stars'
         if len(Klist) > 0:
             DoS['Kstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Klist], \
-               smax[Klist], self.sim.TargetList.dist[Klist].to('pc').value, contrast)
+               smax[Klist], self.sim.TargetList.dist[Klist].to('pc').value, contrast)*aae*RRe
         else:
             DoS['Kstars'] = np.zeros(aa.shape)
         print 'Finished depth of search calculations for observed K stars'
         print 'Beginning depth of search calculations for observed G stars'
         if len(Glist) > 0:
             DoS['Gstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Glist], \
-               smax[Glist], self.sim.TargetList.dist[Glist].to('pc').value, contrast)
+               smax[Glist], self.sim.TargetList.dist[Glist].to('pc').value, contrast)*aae*RRe
         else:
             DoS['Gstars'] = np.zeros(aa.shape)
         print 'Finished depth of search calculations for observed G stars'
         print 'Beginning depth of search calculations for observed F stars'
         if len(Flist) > 0:
             DoS['Fstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Flist], \
-               smax[Flist], self.sim.TargetList.dist[Flist].to('pc').value, contrast)
+               smax[Flist], self.sim.TargetList.dist[Flist].to('pc').value, contrast)*aae*RRe
         else:
             DoS['Fstars'] = np.zeros(aa.shape)
         print 'Finished depth of search calculations for observed F stars'
