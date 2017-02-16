@@ -21,6 +21,7 @@ except:
     import pickle
 from ortools.linear_solver import pywraplp
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 class DoSFuncs(object):
     '''Calculates depth of search values for a given input json script for 
@@ -697,17 +698,18 @@ class DoSFuncs(object):
         DoS = np.insert(DoS, -1, DoS[:,-1], axis=1)
         DoS = np.insert(DoS, 0, DoS[0,:], axis=0)
         DoS = np.insert(DoS, -1, DoS[-1,:], axis=0)
+        DoS = np.ma.masked_where(DoS<=0.0, DoS)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        cs = ax.contourf(a,R,DoS)
-        cs2 = ax.contour(a,R,DoS,levels=cs.levels[1:])
+        cs = ax.contourf(a,R,DoS,locator=ticker.LogLocator())
+        cs2 = ax.contour(a,R,DoS,levels=cs.levels[1:],colors='k')
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlabel('a (AU)')
         ax.set_ylabel('R ($R_\oplus$)')
         ax.set_title('Depth of Search - '+name+' ('+str(self.result['NumObs'][targ])+')')
         cbar = fig.colorbar(cs)
-        ax.clabel(cs2, fmt='%2.1f', colors='w')
+        ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
             fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
         fig.show()
@@ -738,17 +740,18 @@ class DoSFuncs(object):
         DoS_occ = np.insert(DoS_occ, -1, DoS_occ[:,-1], axis=1)
         DoS_occ = np.insert(DoS_occ, 0, DoS_occ[0,:], axis=0)
         DoS_occ = np.insert(DoS_occ, -1, DoS_occ[-1,:], axis=0)
+        DoS_occ = np.ma.masked_where(DoS_occ <= 0.0, DoS_occ)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        cs = ax.contourf(a,R,DoS_occ)
-        cs2 = ax.contour(a,R,DoS_occ,levels=cs.levels[1:])
+        cs = ax.contourf(a,R,DoS_occ,locator=ticker.LogLocator())
+        cs2 = ax.contour(a,R,DoS_occ,levels=cs.levels[1:],colors='k')
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlabel('a (AU)')
         ax.set_ylabel('R ($R_\oplus$)')
         ax.set_title('Number of Planets - '+name+' ('+str(self.result['NumObs'][targ])+')')
         cbar = fig.colorbar(cs)
-        ax.clabel(cs2, fmt='%3.2f', colors='w')
+        ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
             fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
         fig.show()
