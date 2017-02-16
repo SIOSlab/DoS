@@ -41,7 +41,7 @@ Unless the EXOSIMS default contrast value is desired, a fits file or constant va
 Methods for quickly displaying depth of search results and saving them to disk are also included.
 
 ##### ```plot_dos```
-Plots the depth of search as a filled contour plot with contour lines
+Plots the depth of search as a filled contour plot with contour lines (color in log scale)
 
 Args:
 - ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'Entire')
@@ -49,7 +49,7 @@ Args:
 - ```path``` -> string for path to save figure as pdf to disk (optional) (e.g., '.../DoS.pdf')
 
 ##### ```plot_nplan```
-Plots the depth of search convolved with occurrence rates as a filled contour plot with contour lines
+Plots the depth of search convolved with occurrence rates as a filled contour plot with contour lines (color in log scale)
 
 Args:
 - ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'Mstars')
