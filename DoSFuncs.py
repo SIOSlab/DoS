@@ -127,7 +127,7 @@ class DoSFuncs(object):
             Rexp *= self.sim.PlanetPopulation.Rprange.unit.to('AU')
         else:
             Rexp = self.sim.PlanetPopulation.Rprange[0].to('AU').value
-
+        
         # include only F G K M stars
         spec = np.array(map(str, self.sim.TargetList.Spec))
         iF = np.where(np.core.defchararray.startswith(spec, 'F'))[0]
@@ -139,7 +139,6 @@ class DoSFuncs(object):
         i = np.unique(i)
         self.sim.TargetList.revise_lists(i)
         print 'Filtered target stars to only include M, K, G, and F type'
-
         # minimum and maximum separations
         smin = (np.tan(self.sim.OpticalSystem.IWA)*self.sim.TargetList.dist).to('AU').value
         smax = (np.tan(self.sim.OpticalSystem.OWA)*self.sim.TargetList.dist).to('AU').value
@@ -156,7 +155,7 @@ class DoSFuncs(object):
         self.sim.TargetList.revise_lists(smaller)
         smin = smin[smaller]
         smax = smax[smaller]
-    
+        
         print 'Beginning ck calculations'
         ck = self.find_ck(amin,amax,smin,smax,Cmin,pexp,Rexp)
         # include only stars where 0.0 < ck < 1.0
@@ -200,48 +199,37 @@ class DoSFuncs(object):
         self.result['aedges'] = aedges
         self.result['Redges'] = Redges/const.R_earth.to('AU').value
     
-        # bin centers for semi-major axis and planetary radius in AU
-        acents = 0.5*(aedges[1:]+aedges[:-1])
-        Rcents = 0.5*(Redges[1:]+Redges[:-1])
-        aa, RR = np.meshgrid(acents,Rcents)
-        
-        # temporary fix: one_DoS_grid calculates the completeness for a given
-        # semi-major axis and planetary radius, want the integrated total for
-        # each bin. This is calculated by assuming the one_DoS_grid value is
-        # the average value in the bin and multiplying by the bin area
-        ae = aedges[1:]-aedges[:-1]
-        Re = (Redges[1:]-Redges[:-1])/const.R_earth.to('AU').value
-        aae, RRe = np.meshgrid(ae,Re)
+        aa, RR = np.meshgrid(aedges,Redges) # in AU
     
         # get depth of search for each stellar type
         DoS = {}
         print 'Beginning depth of search calculations for observed M stars'
         if len(Mlist) > 0:
-            DoS['Mstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Mlist], \
-               smax[Mlist], self.sim.TargetList.dist[Mlist].to('pc').value, contrast)*aae*RRe
+            DoS['Mstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Mlist], \
+               smax[Mlist], self.sim.TargetList.dist[Mlist].to('pc').value, contrast)
         else:
-            DoS['Mstars'] = np.zeros(aa.shape)
+            DoS['Mstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed M stars'
         print 'Beginning depth of search calculations for observed K stars'
         if len(Klist) > 0:
-            DoS['Kstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Klist], \
-               smax[Klist], self.sim.TargetList.dist[Klist].to('pc').value, contrast)*aae*RRe
+            DoS['Kstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Klist], \
+               smax[Klist], self.sim.TargetList.dist[Klist].to('pc').value, contrast)
         else:
-            DoS['Kstars'] = np.zeros(aa.shape)
+            DoS['Kstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed K stars'
         print 'Beginning depth of search calculations for observed G stars'
         if len(Glist) > 0:
-            DoS['Gstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Glist], \
-               smax[Glist], self.sim.TargetList.dist[Glist].to('pc').value, contrast)*aae*RRe
+            DoS['Gstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Glist], \
+               smax[Glist], self.sim.TargetList.dist[Glist].to('pc').value, contrast)
         else:
-            DoS['Gstars'] = np.zeros(aa.shape)
+            DoS['Gstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed G stars'
         print 'Beginning depth of search calculations for observed F stars'
         if len(Flist) > 0:
-            DoS['Fstars'] = self.DoS_sum(acents, aa, Rcents, RR, pexp, smin[Flist], \
-               smax[Flist], self.sim.TargetList.dist[Flist].to('pc').value, contrast)*aae*RRe
+            DoS['Fstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Flist], \
+               smax[Flist], self.sim.TargetList.dist[Flist].to('pc').value, contrast)
         else:
-            DoS['Fstars'] = np.zeros(aa.shape)
+            DoS['Fstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed F stars'
         DoS['Entire'] = DoS['Mstars'] + DoS['Kstars'] + DoS['Gstars'] + DoS['Fstars']
         # store DoS in result
@@ -294,8 +282,8 @@ class DoSFuncs(object):
         self.outspec = self.sim.genOutSpec()
     
     def one_DoS_grid(self,a,R,p,smin,smax,Cmin):
-        '''Calculates depth of search for one star on semi-major axis--planetary
-        radius grid
+        '''Calculates completeness for one star on constant semi-major axis--
+        planetary radius grid
     
         Args:
             a (ndarray):
@@ -374,19 +362,48 @@ class DoSFuncs(object):
         f[smin>a] = 0.0
 
         return f
+    
+    def one_DoS_bins(self,a,R,p,smin,smax,Cmin):
+        '''Calculates depth of search for each bin by integrating the
+        completeness for given semi-major axis and planetary radius
+        
+        Args:
+            a (ndarray):
+                2D grid of semi-major axis bin edges in AU
+            R (ndarray):
+                2D grid of planetary radius bin edges in R_Earth
+            p (float):
+                expected value of geometric albedo
+            smin (float):
+                minimum separation in AU
+            smax (float):
+                maximum separation in AU
+            Cmin (ndarray):
+                2D grid of minimum contrast
+        
+        Returns:
+            f (ndarray):
+                2D array of depth of search values in each bin
+        
+        '''
+        
+        tmp = self.one_DoS_grid(a,R,p,smin,smax,Cmin)
+        f = 0.25*(a[1:,1:]-a[1:,:-1])*(R[1:,1:]-R[:-1,1:])/const.R_earth.to('AU').value*(tmp[:-1,:-1]+tmp[1:,:-1]+tmp[:-1,1:]+tmp[1:,1:])
+        
+        return f
 
     def DoS_sum(self,a,aa,R,RR,pexp,smin,smax,dist,Cs):
         '''Sums the depth of search
         
         Args:
             a (ndarray):
-                1D array of semi-major axis values in AU
+                1D array of semi-major axis bin edge values in AU
             aa (ndarray):
-                2D grid of semi-major axis values in AU
+                2D grid of semi-major axis bin edge values in AU
             R (ndarray):
-                1D array of planetary radius values in AU
+                1D array of planetary radius bin edge values in AU
             RR (ndarray):
-                2D grid of planetary radius values in AU
+                2D grid of planetary radius bin edge values in AU
             pexp (float):
                 expected value of geometric albedo
             smin (ndarray):
@@ -404,7 +421,7 @@ class DoSFuncs(object):
         
         '''
         
-        DoS = np.zeros(aa.shape)
+        DoS = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         for i in xrange(len(smin)):
             Cmin = np.zeros(a.shape)
             # expected value of Cmin calculations for each separation
@@ -423,7 +440,7 @@ class DoSFuncs(object):
                     Cmin[j] = val/den
 
             Cmin,RR = np.meshgrid(Cmin,R)
-            DoS += self.one_DoS_grid(aa,RR,pexp,smin[i],smax[i],Cmin)
+            DoS += self.one_DoS_bins(aa,RR,pexp,smin[i],smax[i],Cmin)
         
         return DoS
 
