@@ -60,17 +60,17 @@ Args:
 Saves the results and ```EXOSIMS.MissionSim``` outspec as a pickled dictionary to disk
 
 Args:
-- ```directory``` -> string for directory path to save results
+- ```path``` -> string for path to save results
 
-Results are saved in directory+'/results.DoS' as a dictionary with keys ```'Results'``` and ```'outspec'``` containing the ```result``` and ```outspec``` attributes respectively.
+Results are saved in the specified path as a pickled dictionary with keys ```'Results'``` and ```'outspec'``` containing the ```result``` and ```outspec``` attributes respectively.
 
 ##### ```save_json```
 Saves the output json script to disk
 
 Args:
-- ```directory``` -> string for directory path to save json script
+- ```path``` -> string for path to save json script
 
-Results are saved in directory+'/DoS.json'
+Results are saved in the specified path.
 
 ##### ```save_csvs```
 Saves results as individual csv files to disk

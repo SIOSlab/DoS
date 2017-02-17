@@ -756,30 +756,30 @@ class DoSFuncs(object):
             fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
         fig.show()
     
-    def save_results(self, directory):
+    def save_results(self, path):
         '''Saves results and outspec dictionaries to disk
         
         Args:
-            directory (str):
-                string containing directory path for saved results
+            path (str):
+                string containing path for saved results
         
         '''
         
         x = {'Results': self.result, 'outspec': self.outspec}
-        pickle.dump(x, open(directory+'/results.DoS','wb'))
-        print 'Results saved as '+directory+'/results.DoS'
+        pickle.dump(x, open(path,'wb'))
+        print 'Results saved as '+path
         
-    def save_json(self, directory):
+    def save_json(self, path):
         '''Saves json file used to generate results to disk
         
         Args:
-            directory (str):
+            path (str):
                 string containing directory path for file
         
         '''
         
-        self.sim.genOutSpec(tofile=directory+'/DoS.json')
-        print 'json script saved as '+directory+'/DoS.json'
+        self.sim.genOutSpec(tofile=path)
+        print 'json script saved as '+path
         
     def save_csvs(self, directory):
         '''Saves results as individual csv files to disk
