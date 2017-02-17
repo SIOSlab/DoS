@@ -711,10 +711,18 @@ class DoSFuncs(object):
         R = np.hstack((self.result['Redges'][0],Rcents,self.result['Redges'][-1]))
         R = np.around(R,4)
         DoS = self.result['DoS'][targ]
-        DoS = np.insert(DoS, 0, DoS[:,0], axis=1)
-        DoS = np.insert(DoS, -1, DoS[:,-1], axis=1)
-        DoS = np.insert(DoS, 0, DoS[0,:], axis=0)
-        DoS = np.insert(DoS, -1, DoS[-1,:], axis=0)
+        # extrapolate to left-most boundary
+        tmp = DoS[:,0] + (a[0]-a[1])*((DoS[:,1]-DoS[:,0])/(a[2]-a[1]))
+        DoS = np.insert(DoS, 0, tmp, axis=1)
+        # extrapolate to right-most boundary
+        tmp = DoS[:,-1] + (a[-1]-a[-2])*((DoS[:,-1]-DoS[:,-2])/(a[-2]-a[-3]))
+        DoS = np.insert(DoS, -1, tmp, axis=1)
+        # extrapolate to bottom-most boundary
+        tmp = DoS[0,:] + (R[0]-R[1])*((DoS[1,:]-DoS[0,:])/(R[2]-R[1]))
+        DoS = np.insert(DoS, 0, tmp, axis=0)
+        # extrapolate to upper-most boundary
+        tmp = DoS[-1,:] + (R[-1]-R[-2])*((DoS[-1,:]-DoS[-2,:])/(R[-2]-R[-3]))
+        DoS = np.insert(DoS, -1, tmp, axis=0)
         DoS = np.ma.masked_where(DoS<=0.0, DoS)
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -753,10 +761,18 @@ class DoSFuncs(object):
         R = np.hstack((self.result['Redges'][0],Rcents,self.result['Redges'][-1]))
         R = np.around(R,4)
         DoS_occ = self.result['DoS_occ'][targ]
-        DoS_occ = np.insert(DoS_occ, 0, DoS_occ[:,0], axis=1)
-        DoS_occ = np.insert(DoS_occ, -1, DoS_occ[:,-1], axis=1)
-        DoS_occ = np.insert(DoS_occ, 0, DoS_occ[0,:], axis=0)
-        DoS_occ = np.insert(DoS_occ, -1, DoS_occ[-1,:], axis=0)
+        # extrapolate to left-most boundary
+        tmp = DoS_occ[:,0] + (a[0]-a[1])*((DoS_occ[:,1]-DoS_occ[:,0])/(a[2]-a[1]))
+        DoS_occ = np.insert(DoS_occ, 0, tmp, axis=1)
+        # extrapolate to right-most boundary
+        tmp = DoS_occ[:,-1] + (a[-1]-a[-2])*((DoS_occ[:,-1]-DoS_occ[:,-2])/(a[-2]-a[-3]))
+        DoS_occ = np.insert(DoS_occ, -1, tmp, axis=1)
+        # extrapolate to bottom-most boundary
+        tmp = DoS_occ[0,:] + (R[0]-R[1])*((DoS_occ[1,:]-DoS_occ[0,:])/(R[2]-R[1]))
+        DoS_occ = np.insert(DoS_occ, 0, tmp, axis=0)
+        # extrapolate to upper-most boundary
+        tmp = DoS_occ[-1,:] + (R[-1]-R[-2])*((DoS_occ[-1,:]-DoS_occ[-2,:])/(R[-2]-R[-3]))
+        DoS_occ = np.insert(DoS_occ, -1, tmp, axis=0)
         DoS_occ = np.ma.masked_where(DoS_occ <= 0.0, DoS_occ)
         fig = plt.figure()
         ax = fig.add_subplot(111)
