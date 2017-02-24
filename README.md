@@ -16,10 +16,12 @@ This Python package calculates the depth of search on a grid of semi-major axis 
 Unless the EXOSIMS default contrast value is desired, a fits file or constant value must be supplied for ```'core_contrast'``` in the json script file used to generate the ```EXOSIMS.MissionSim``` object.
 
 ### ```DoSFuncs``` class object initialization and attributes
+One of ```path``` or ```sim``` MUST be passed to DoSFuncs to return depth of search results.
 
 ##### ```DoSFuncs``` class object arguments:
 
 - ```path``` -> path to a json script file used to generate an ```EXOSIMS.MissionSim``` object
+- ```sim``` -> EXOSIMS.MissionSim object
 - ```abins``` -> number of semi-major axis bins for grid (optional-default is 100)
 - ```Rbins``` -> number of planetary radius bins for grid (optional-default is 30)
 - ```maxTime``` -> maximum total integration time in days (optional-default is 365)

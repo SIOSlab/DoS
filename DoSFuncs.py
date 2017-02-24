@@ -33,9 +33,13 @@ class DoSFuncs(object):
     path to a fits file or a constant value, otherwise the default contrast 
     value from EXOSIMS will be used
     
+    path or sim must be specified but not both
+    
     Args:
         path (str):
             path to json script for EXOSIMS
+        sim (object):
+            existing EXOSIMS.MissionSim object 
         abins (int):
             number of semi-major axis bins for depth of search grid (optional)
         Rbins (int):
@@ -75,11 +79,20 @@ class DoSFuncs(object):
     
     '''
     
-    def __init__(self, path, abins=100, Rbins=30, maxTime=365.0):
+    def __init__(self, path=None, sim=None, abins=100, Rbins=30, maxTime=365.0):
+        if path is None and sim is None:
+            raise ValueError('path or sim must be specified')
+        if path is not None and sim is not None:
+            raise ValueError('specify path or sim, not both')
+        if path is not None and sim is None:
+            # generate EXOSIMS.MissionSim object to calculate integration times
+            self.sim = MissionSim.MissionSim(scriptfile=path)
+            print 'Acquired EXOSIMS data from %r' % (path)
+        if path is None and sim is not None:
+            # EXOSIMS.MissionSim object has been pre-initialized
+            self.sim = sim
+            print 'Acquired existing EXOSIMS.MissionSim object'
         self.result = {}
-        # use EXOSIMS to calculate integration times
-        self.sim = MissionSim.MissionSim(scriptfile=path)
-        print 'Acquired EXOSIMS data from %r' % (path)
         # minimum and maximum values of semi-major axis and planetary radius
         # NO astropy Quantities
         amin = self.sim.PlanetPopulation.arange[0].to('AU').value
@@ -662,7 +675,6 @@ class DoSFuncs(object):
         occAll = np.sum(occ, axis=1)
         
         etas = np.zeros((len(Redges)-1,len(aedges)-1))
-        # occurrence rates extrapolated for M stars
         fac1 = integrate.quad(fa, amin, sma[-1])[0]
         # occurrence rate as function of R
         Rvals = np.zeros((len(Redges)-1,))
