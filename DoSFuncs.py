@@ -6,7 +6,7 @@ Created on Wed Feb 1, 2017
 """
 
 import numpy as np
-import os
+import os, copy
 import EXOSIMS.MissionSim as MissionSim
 import sympy
 from sympy.solvers import solve
@@ -90,7 +90,8 @@ class DoSFuncs(object):
             print 'Acquired EXOSIMS data from %r' % (path)
         if path is None and sim is not None:
             # EXOSIMS.MissionSim object has been pre-initialized
-            self.sim = sim
+            # make deepcopy so that original sim is not overwritten
+            self.sim = copy.deepcopy(sim)
             print 'Acquired existing EXOSIMS.MissionSim object'
         self.result = {}
         # minimum and maximum values of semi-major axis and planetary radius
