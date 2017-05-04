@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Feb 1, 2017
+Updated Thurs May 4, 2017
 
 @author: dg622@cornell.edu
 """
@@ -24,10 +25,10 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
 class DoSFuncs(object):
-    '''Calculates depth of search values for a given input json script for 
-    EXOSIMS. Only stellar types M, K, G, and F are used. All other stellar 
-    types are filtered out. Occurrence rates are extrapolated from data in
-    Mulders 2015.
+    '''Calculates depth of search values for a given input EXOSIMS json script 
+    or instantiated EXOSIMS.MissionSim object. Only stellar types M, K, G, and 
+    F are used. All other stellar types are filtered out. Occurrence rates are 
+    extrapolated from data in Mulders 2015.
     
     'core_contrast' must be specified in the input json script as either a 
     path to a fits file or a constant value, otherwise the default contrast 
@@ -46,6 +47,10 @@ class DoSFuncs(object):
             number of planetary radius bins for depth of search grid (optional)
         maxTime (float):
             maximum total integration time in days (optional)
+        intCutoff (float):
+            integration cutoff time per target in days (optional)
+        WA_targ (astropy Quantity):
+            working angle for target instrument contrast (optional)
             
     Attributes:
         result (dict):
@@ -79,7 +84,7 @@ class DoSFuncs(object):
     
     '''
     
-    def __init__(self, path=None, sim=None, abins=100, Rbins=30, maxTime=365.0):
+    def __init__(self, path=None, sim=None, abins=100, Rbins=30, maxTime=365.0, intCutoff=30.0, WA_targ=None):
         if path is None and sim is None:
             raise ValueError('path or sim must be specified')
         if path is not None and sim is not None:
@@ -93,6 +98,13 @@ class DoSFuncs(object):
             # make deepcopy so that original sim is not overwritten
             self.sim = copy.deepcopy(sim)
             print 'Acquired existing EXOSIMS.MissionSim object'
+        if WA_targ is not None:
+            try:
+                float(WA_targ.value)
+            except AttributeError:
+                print 'WA_targ must be astropy Quantity'
+            except TypeError:
+                print 'WA_targ can have only one value'
         self.result = {}
         # minimum and maximum values of semi-major axis and planetary radius
         # NO astropy Quantities
@@ -113,17 +125,27 @@ class DoSFuncs(object):
         mode = self.sim.OpticalSystem.observingModes[0]
         syst = mode['syst']
         lam = mode['lam']
-        # contrast curve without astropy Quantities
-        core_contrast = syst['core_contrast'](lam,WA)*self.sim.PostProcessing.ppFact(WA)
-        contrast = interpolate.interp1d(WA.to('arcsec').value, core_contrast, \
+        dMag = self.sim.OpticalSystem.dMagLim
+        fZ = self.sim.ZodiacalLight.fZ0
+        fEZ = self.sim.ZodiacalLight.fEZ0
+        if WA_targ == None:
+            core_contrast = syst['core_contrast'](lam,WA)
+            contrast = interpolate.interp1d(WA.to('arcsec').value, core_contrast, \
                                     kind='cubic', fill_value=1.0)
-        # find minimum value of contrast
-        opt = optimize.minimize_scalar(contrast, \
+            # find minimum value of contrast
+            opt = optimize.minimize_scalar(contrast, \
                                        bounds=[self.sim.OpticalSystem.IWA.to('arcsec').value, \
                                                self.sim.OpticalSystem.OWA.to('arcsec').value],\
                                                method='bounded')
+            Cmin = opt.fun
+            WA_targ = opt.x*u.arcsec
+        
+        t_int1 = self.sim.OpticalSystem.calc_intTime(self.sim.TargetList,np.array([0]),fZ,fEZ,dMag,WA_targ,mode)
+        core_contrast = self.sim.OpticalSystem.calc_contrast_per_intTime(t_int1,self.sim.TargetList,np.array([0]),fZ,fEZ,WA,mode,dMag=dMag)
+        contrast = interpolate.interp1d(WA.to('arcsec').value,core_contrast,kind='cubic',fill_value=1.0)
+        opt = optimize.minimize_scalar(contrast,bounds=[self.sim.OpticalSystem.IWA.to('arcsec').value,self.sim.OpticalSystem.OWA.to('arcsec').value],method='bounded')
         Cmin = opt.fun
-
+        
         # find expected values of p and R
         if self.sim.PlanetPopulation.prange[0] != self.sim.PlanetPopulation.prange[1]:
             f = lambda p: p*self.sim.PlanetPopulation.dist_albedo(p)
@@ -170,24 +192,42 @@ class DoSFuncs(object):
         smin = smin[smaller]
         smax = smax[smaller]
         
+        # calculate integration times
+        sInds = np.arange(self.sim.TargetList.nStars)
+        # select detection mode
+        mode = filter(lambda mode: mode['detectionMode'] == True, self.sim.OpticalSystem.observingModes)[0]
+        # calculate maximum integration time
+        t_int = self.sim.OpticalSystem.calc_intTime(self.sim.TargetList, sInds, fZ, fEZ, dMag, WA_targ, mode)
+        
+        # remove integration times above cutoff
+        cutoff = np.where(t_int.to('day').value<intCutoff)[0]
+        self.sim.TargetList.revise_lists(cutoff)
+        smin = smin[cutoff]
+        smax = smax[cutoff]
+        t_int = t_int[cutoff]
+        
         print 'Beginning ck calculations'
+        # calculate ck
         ck = self.find_ck(amin,amax,smin,smax,Cmin,pexp,Rexp)
-        # include only stars where 0.0 < ck < 1.0
-        smaller = np.where(0.0<ck)[0]
-        self.sim.TargetList.revise_lists(smaller)
-        smin = smin[smaller]
-        smax = smax[smaller]
-        ck = ck[smaller]
+        # offset to account for zero ck values with nonzero completeness
+        ck += ck[ck>0.0].min()*1e-2
         print 'Finished ck calculations'
-    
+        
         print 'Beginning ortools calculations to determine list of observed stars'
         # use ortools to select observed stars
-        sInds = self.select_obs(self.sim.TargetList.tint0.to('day').value,maxTime,ck)
+        sInds = self.select_obs(t_int.to('day').value,maxTime,ck)
         print 'Finished ortools calculations'
         # include only stars chosen for observation
         self.sim.TargetList.revise_lists(sInds)
         smin = smin[sInds]
         smax = smax[sInds]
+        t_int = t_int[sInds]
+        ck = ck[sInds]
+        
+        # get contrast array for given integration times
+        WA = np.linspace(self.sim.OpticalSystem.IWA, self.sim.OpticalSystem.OWA, 50)
+        sInds2 = np.arange(self.sim.TargetList.nStars)
+        C_inst = self.sim.OpticalSystem.calc_contrast_per_intTime(t_int,self.sim.TargetList,sInds2,fZ,fEZ,WA,mode)
     
         # find which are M K G F stars
         spec = np.array(map(str, self.sim.TargetList.Spec))
@@ -220,28 +260,28 @@ class DoSFuncs(object):
         print 'Beginning depth of search calculations for observed M stars'
         if len(Mlist) > 0:
             DoS['Mstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Mlist], \
-               smax[Mlist], self.sim.TargetList.dist[Mlist].to('pc').value, contrast)
+               smax[Mlist], self.sim.TargetList.dist[Mlist].to('pc').value, C_inst[Mlist,:], WA)
         else:
             DoS['Mstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed M stars'
         print 'Beginning depth of search calculations for observed K stars'
         if len(Klist) > 0:
             DoS['Kstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Klist], \
-               smax[Klist], self.sim.TargetList.dist[Klist].to('pc').value, contrast)
+               smax[Klist], self.sim.TargetList.dist[Klist].to('pc').value, C_inst[Klist,:], WA)
         else:
             DoS['Kstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed K stars'
         print 'Beginning depth of search calculations for observed G stars'
         if len(Glist) > 0:
             DoS['Gstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Glist], \
-               smax[Glist], self.sim.TargetList.dist[Glist].to('pc').value, contrast)
+               smax[Glist], self.sim.TargetList.dist[Glist].to('pc').value, C_inst[Glist,:], WA)
         else:
             DoS['Gstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed G stars'
         print 'Beginning depth of search calculations for observed F stars'
         if len(Flist) > 0:
             DoS['Fstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Flist], \
-               smax[Flist], self.sim.TargetList.dist[Flist].to('pc').value, contrast)
+               smax[Flist], self.sim.TargetList.dist[Flist].to('pc').value, C_inst[Flist,:], WA)
         else:
             DoS['Fstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed F stars'
@@ -294,6 +334,7 @@ class DoSFuncs(object):
         
         # store MissionSim output specification dictionary
         self.outspec = self.sim.genOutSpec()
+        self.ck = ck
     
     def one_DoS_grid(self,a,R,p,smin,smax,Cmin):
         '''Calculates completeness for one star on constant semi-major axis--
@@ -406,7 +447,7 @@ class DoSFuncs(object):
         
         return f
 
-    def DoS_sum(self,a,aa,R,RR,pexp,smin,smax,dist,Cs):
+    def DoS_sum(self,a,aa,R,RR,pexp,smin,smax,dist,C_inst,WA):
         '''Sums the depth of search
         
         Args:
@@ -426,8 +467,10 @@ class DoSFuncs(object):
                 1D array of maximum separation values in AU
             dist (ndarray):
                 1D array of stellar distance values in pc
-            Cs (callable):
-                contrast curve (function of working angle)
+            C_inst (ndarray):
+                instrument contrast at working angle
+            WA (ndarray):
+                working angles in arcseconds
             
         Returns:
             DoS (ndarray):
@@ -437,6 +480,7 @@ class DoSFuncs(object):
         
         DoS = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         for i in xrange(len(smin)):
+            Cs = interpolate.interp1d(WA, C_inst[i], kind='cubic', fill_value=1.0)
             Cmin = np.zeros(a.shape)
             # expected value of Cmin calculations for each separation
             for j in xrange(len(a)):
@@ -565,6 +609,7 @@ class DoSFuncs(object):
                         ck[i] = integrate.quad(f56,kmin,k6[i],limit=100)[0]
                     else:
                         ck[i] = 0.0
+#                        print 'kmin: %r / k6: %r' % (kmin,k6[i])
                 else:
                     if kmin < k1[i]:
                         ck[i] = integrate.quad(f12,k1[i],k2[i],limit=100)[0]
@@ -596,6 +641,7 @@ class DoSFuncs(object):
                         ck[i] = integrate.quad(f46,kmin,k6[i],limit=100)[0]
                     else:
                         ck[i] = 0.0
+#                        print 'kmin: %r / k6: %r' % (kmin,k6[i])
                 
         return ck
 
