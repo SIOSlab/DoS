@@ -5,6 +5,7 @@ This Python package calculates the depth of search on a grid of semi-major axis 
 
 - ```numpy```
 - ```os```
+- ```copy```
 - ```sympy```
 - ```scipy```
 - ```astropy```
@@ -25,6 +26,8 @@ One of ```path``` or ```sim``` MUST be passed to DoSFuncs to return depth of sea
 - ```abins``` -> number of semi-major axis bins for grid (optional-default is 100)
 - ```Rbins``` -> number of planetary radius bins for grid (optional-default is 30)
 - ```maxTime``` -> maximum total integration time in days (optional-default is 365)
+- ```intCutoff``` -> maximum integration time for a single target in days (optional-default is 30)
+- ```WA_targ``` -> target working angle for instrument contrast (astropy Quantity) if not specified, DoSFuncs finds the working angle for minimum contrast to use in integration time calculations
 
 ##### ```DoSFuncs``` class object attributes:
 
@@ -37,6 +40,7 @@ One of ```path``` or ```sim``` MUST be passed to DoSFuncs to return depth of sea
   - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type, keys include ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```
 - ```sim``` -> ```EXOSIMS.MissionSim``` object used to generate the target list and integration times
 - ```outspec``` -> dictionary containing ```EXOSIMS.MissionSim``` output specifications
+- ```ck``` -> list of ck metric values
 
 ### ```DoSFuncs``` Methods
 
