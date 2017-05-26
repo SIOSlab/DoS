@@ -322,13 +322,16 @@ class DoSFuncs(object):
                               self.sim.PlanetPopulation.dist_sma,amin)
         self.result['occ_rates'] = occ_rates
           
-        # convolve depth of search with occurrence rates
+        # perform convolution of depth of search with occurrence rates
+        r_norm = Redges[1:] - Redges[:-1]
+        a_norm = aedges[1:] - aedges[:-1]
+        norma, normR = np.meshgrid(a_norm,r_norm)
         DoS_occ = {}
         print 'Convolving depth of search with occurrence rates'
-        DoS_occ['Mstars'] = DoS['Mstars']*occ_rates['Mstars']
-        DoS_occ['Kstars'] = DoS['Kstars']*occ_rates['Kstars']
-        DoS_occ['Gstars'] = DoS['Gstars']*occ_rates['Gstars']
-        DoS_occ['Fstars'] = DoS['Fstars']*occ_rates['Fstars']
+        DoS_occ['Mstars'] = DoS['Mstars']*occ_rates['Mstars']*norma*normR
+        DoS_occ['Kstars'] = DoS['Kstars']*occ_rates['Kstars']*norma*normR
+        DoS_occ['Gstars'] = DoS['Gstars']*occ_rates['Gstars']*norma*normR
+        DoS_occ['Fstars'] = DoS['Fstars']*occ_rates['Fstars']*norma*normR
         DoS_occ['Entire'] = DoS_occ['Mstars']+DoS_occ['Kstars']+DoS_occ['Gstars']+DoS_occ['Fstars']
         self.result['DoS_occ'] = DoS_occ
         
@@ -443,7 +446,7 @@ class DoSFuncs(object):
         '''
         
         tmp = self.one_DoS_grid(a,R,p,smin,smax,Cmin)
-        f = 0.25*(a[1:,1:]-a[1:,:-1])*(R[1:,1:]-R[:-1,1:])/const.R_earth.to('AU').value*(tmp[:-1,:-1]+tmp[1:,:-1]+tmp[:-1,1:]+tmp[1:,1:])
+        f = 0.25*(tmp[:-1,:-1]+tmp[1:,:-1]+tmp[:-1,1:]+tmp[1:,1:])
         
         return f
 
