@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Feb 1, 2017
-Updated Thurs May 4, 2017
+Updated Fri June 16, 2017
 
 @author: dg622@cornell.edu
 """
@@ -141,14 +141,14 @@ class DoSFuncs(object):
             WA_targ = opt.x*u.arcsec
         
         t_int1 = self.sim.OpticalSystem.calc_intTime(self.sim.TargetList,np.array([0]),fZ,fEZ,dMag,WA_targ,mode)
-        core_contrast = self.sim.OpticalSystem.calc_contrast_per_intTime(t_int1,self.sim.TargetList,np.array([0]),fZ,fEZ,WA,mode,dMag=dMag)
+        core_contrast = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int1,self.sim.TargetList,np.array([0]),fZ,fEZ,WA,mode))
         contrast = interpolate.interp1d(WA.to('arcsec').value,core_contrast,kind='cubic',fill_value=1.0)
         opt = optimize.minimize_scalar(contrast,bounds=[self.sim.OpticalSystem.IWA.to('arcsec').value,self.sim.OpticalSystem.OWA.to('arcsec').value],method='bounded')
         Cmin = opt.fun
         
         # find expected values of p and R
         if self.sim.PlanetPopulation.prange[0] != self.sim.PlanetPopulation.prange[1]:
-            f = lambda p: p*self.sim.PlanetPopulation.dist_albedo(p)
+            f = lambda p: p*self.sim.PlanetPopulation.pdist(p)
             pexp, err = integrate.quad(f,self.sim.PlanetPopulation.prange[0],\
                                        self.sim.PlanetPopulation.prange[1],\
                                         epsabs=0,epsrel=1e-6,limit=100)
@@ -156,7 +156,7 @@ class DoSFuncs(object):
             pexp = self.sim.PlanetPopulation.prange[0]
         print 'Expected value of geometric albedo: %r' % (pexp)
         if self.sim.PlanetPopulation.Rprange[0] != self.sim.PlanetPopulation.Rprange[1]:
-            f = lambda R: R*self.sim.PlanetPopulation.dist_radius(R)
+            f = lambda R: R*self.sim.PlanetPopulation.Rpdist(R)
             Rexp, err = integrate.quad(f,self.sim.PlanetPopulation.Rprange[0].to('km').value,\
                                        self.sim.PlanetPopulation.Rprange[1].to('km').value,\
                                         epsabs=0,epsrel=1e-4,limit=100)
@@ -227,8 +227,7 @@ class DoSFuncs(object):
         # get contrast array for given integration times
         WA = np.linspace(self.sim.OpticalSystem.IWA, self.sim.OpticalSystem.OWA, 50)
         sInds2 = np.arange(self.sim.TargetList.nStars)
-        C_inst = self.sim.OpticalSystem.calc_contrast_per_intTime(t_int,self.sim.TargetList,sInds2,fZ,fEZ,WA,mode)
-    
+        C_inst = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int,self.sim.TargetList,sInds2,fZ,fEZ,WA,mode))
         # find which are M K G F stars
         spec = np.array(map(str, self.sim.TargetList.Spec))
         Mlist = np.where(np.core.defchararray.startswith(spec, 'M'))[0]
@@ -307,19 +306,19 @@ class DoSFuncs(object):
         print 'Extrapolating occurrence rates for M stars'
         occ_rates['Mstars'] = self.find_occurrence(0.35*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['MstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
+                              self.sim.PlanetPopulation.adist,amin)
         print 'Extrapolating occurrence rates for K stars'
         occ_rates['Kstars'] = self.find_occurrence(0.70*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['KstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
+                              self.sim.PlanetPopulation.adist,amin)
         print 'Extrapolating occurrence rates for G stars'
         occ_rates['Gstars'] = self.find_occurrence(0.91*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['GstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
+                              self.sim.PlanetPopulation.adist,amin)
         print 'Extrapolating occurrence rates for F stars'
         occ_rates['Fstars'] = self.find_occurrence(1.08*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['FstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
+                              self.sim.PlanetPopulation.adist,amin)
         self.result['occ_rates'] = occ_rates
           
         # perform convolution of depth of search with occurrence rates
