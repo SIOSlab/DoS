@@ -5,9 +5,9 @@ Updated Fri June 16, 2017
 
 @author: dg622@cornell.edu
 """
-
+# IWA and OWA should use detection mode values
 import numpy as np
-import os, copy
+import os
 import EXOSIMS.MissionSim as MissionSim
 import sympy
 from sympy.solvers import solve
@@ -23,6 +23,7 @@ except:
 from ortools.linear_solver import pywraplp
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+#from memory_profiler import profile
 
 class DoSFuncs(object):
     '''Calculates depth of search values for a given input EXOSIMS json script 
@@ -39,8 +40,6 @@ class DoSFuncs(object):
     Args:
         path (str):
             path to json script for EXOSIMS
-        sim (object):
-            existing EXOSIMS.MissionSim object 
         abins (int):
             number of semi-major axis bins for depth of search grid (optional)
         Rbins (int):
@@ -49,8 +48,10 @@ class DoSFuncs(object):
             maximum total integration time in days (optional)
         intCutoff (float):
             integration cutoff time per target in days (optional)
+        dMag (float):
+            limiting dMag value for integration time calculation (optional)
         WA_targ (astropy Quantity):
-            working angle for target instrument contrast (optional)
+            working angle for target astrophysical contrast (optional)
             
     Attributes:
         result (dict):
@@ -84,20 +85,18 @@ class DoSFuncs(object):
     
     '''
     
-    def __init__(self, path=None, sim=None, abins=100, Rbins=30, maxTime=365.0, intCutoff=30.0, WA_targ=None):
-        if path is None and sim is None:
-            raise ValueError('path or sim must be specified')
-        if path is not None and sim is not None:
-            raise ValueError('specify path or sim, not both')
-        if path is not None and sim is None:
+    def __init__(self, path=None, abins=100, Rbins=30, maxTime=365.0, intCutoff=30.0, dMag=None, WA_targ=None):
+        if path is None:
+            raise ValueError('path must be specified')
+        if path is not None:
             # generate EXOSIMS.MissionSim object to calculate integration times
             self.sim = MissionSim.MissionSim(scriptfile=path)
             print 'Acquired EXOSIMS data from %r' % (path)
-        if path is None and sim is not None:
-            # EXOSIMS.MissionSim object has been pre-initialized
-            # make deepcopy so that original sim is not overwritten
-            self.sim = copy.deepcopy(sim)
-            print 'Acquired existing EXOSIMS.MissionSim object'
+        if dMag is not None:
+            try:
+                float(dMag)
+            except TypeError:
+                print 'dMag can have only one value'
         if WA_targ is not None:
             try:
                 float(WA_targ.value)
@@ -110,32 +109,34 @@ class DoSFuncs(object):
         # NO astropy Quantities
         amin = self.sim.PlanetPopulation.arange[0].to('AU').value
         amax = self.sim.PlanetPopulation.arange[1].to('AU').value
-        Rmin = (self.sim.PlanetPopulation.Rprange[0]/const.R_earth).decompose().value
+        Rmin = self.sim.PlanetPopulation.Rprange[0].to('earthRad').value
         assert Rmin < 45.0, 'Minimum planetary radius is above extrapolation range'
         if Rmin < 0.35:
             print 'Rmin reset to 0.35*R_earth'
             Rmin = 0.35
-        Rmax = (self.sim.PlanetPopulation.Rprange[1]/const.R_earth).decompose().value
+        Rmax = self.sim.PlanetPopulation.Rprange[1].to('earthRad').value
         assert Rmax > 0.35, 'Maximum planetary radius is below extrapolation range'
         if Rmax > 45.0:
             print 'Rmax reset to 45.0*R_earth'
         assert Rmax > Rmin, 'Maximum planetary radius is less than minimum planetary radius'
         # need to get Cmin from contrast curve
-        WA = np.linspace(self.sim.OpticalSystem.IWA, self.sim.OpticalSystem.OWA, 50)
-        mode = self.sim.OpticalSystem.observingModes[0]
+        mode = filter(lambda mode: mode['detectionMode'] == True, self.sim.OpticalSystem.observingModes)[0]
+        WA = np.linspace(mode['IWA'], mode['OWA'], 50)
         syst = mode['syst']
         lam = mode['lam']
-        dMag = self.sim.OpticalSystem.dMagLim
+        if dMag is None:
+            # use dMagComp or dMagLim when dMag not specified
+            dMag = self.sim.Completeness.dMagComp if self.sim.Completeness.dMagComp is not None else self.sim.OpticalSystem.dMagLim
         fZ = self.sim.ZodiacalLight.fZ0
         fEZ = self.sim.ZodiacalLight.fEZ0
-        if WA_targ == None:
+        if WA_targ is None:
             core_contrast = syst['core_contrast'](lam,WA)
             contrast = interpolate.interp1d(WA.to('arcsec').value, core_contrast, \
                                     kind='cubic', fill_value=1.0)
             # find minimum value of contrast
             opt = optimize.minimize_scalar(contrast, \
-                                       bounds=[self.sim.OpticalSystem.IWA.to('arcsec').value, \
-                                               self.sim.OpticalSystem.OWA.to('arcsec').value],\
+                                       bounds=[mode['IWA'].to('arcsec').value, \
+                                               mode['OWA'].to('arcsec').value],\
                                                method='bounded')
             Cmin = opt.fun
             WA_targ = opt.x*u.arcsec
@@ -143,12 +144,12 @@ class DoSFuncs(object):
         t_int1 = self.sim.OpticalSystem.calc_intTime(self.sim.TargetList,np.array([0]),fZ,fEZ,dMag,WA_targ,mode)
         core_contrast = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int1,self.sim.TargetList,np.array([0]),fZ,fEZ,WA,mode))
         contrast = interpolate.interp1d(WA.to('arcsec').value,core_contrast,kind='cubic',fill_value=1.0)
-        opt = optimize.minimize_scalar(contrast,bounds=[self.sim.OpticalSystem.IWA.to('arcsec').value,self.sim.OpticalSystem.OWA.to('arcsec').value],method='bounded')
+        opt = optimize.minimize_scalar(contrast,bounds=[mode['IWA'].to('arcsec').value,mode['OWA'].to('arcsec').value],method='bounded')
         Cmin = opt.fun
         
         # find expected values of p and R
         if self.sim.PlanetPopulation.prange[0] != self.sim.PlanetPopulation.prange[1]:
-            f = lambda p: p*self.sim.PlanetPopulation.pdist(p)
+            f = lambda p: p*self.sim.PlanetPopulation.dist_albedo(p)
             pexp, err = integrate.quad(f,self.sim.PlanetPopulation.prange[0],\
                                        self.sim.PlanetPopulation.prange[1],\
                                         epsabs=0,epsrel=1e-6,limit=100)
@@ -156,11 +157,11 @@ class DoSFuncs(object):
             pexp = self.sim.PlanetPopulation.prange[0]
         print 'Expected value of geometric albedo: %r' % (pexp)
         if self.sim.PlanetPopulation.Rprange[0] != self.sim.PlanetPopulation.Rprange[1]:
-            f = lambda R: R*self.sim.PlanetPopulation.Rpdist(R)
-            Rexp, err = integrate.quad(f,self.sim.PlanetPopulation.Rprange[0].to('km').value,\
-                                       self.sim.PlanetPopulation.Rprange[1].to('km').value,\
+            f = lambda R: R*self.sim.PlanetPopulation.dist_radius(R)
+            Rexp, err = integrate.quad(f,self.sim.PlanetPopulation.Rprange[0].to('earthRad').value,\
+                                       self.sim.PlanetPopulation.Rprange[1].to('earthRad').value,\
                                         epsabs=0,epsrel=1e-4,limit=100)
-            Rexp *= self.sim.PlanetPopulation.Rprange.unit.to('AU')
+            Rexp *= u.earthRad.to('AU')
         else:
             Rexp = self.sim.PlanetPopulation.Rprange[0].to('AU').value
         
@@ -176,8 +177,8 @@ class DoSFuncs(object):
         self.sim.TargetList.revise_lists(i)
         print 'Filtered target stars to only include M, K, G, and F type'
         # minimum and maximum separations
-        smin = (np.tan(self.sim.OpticalSystem.IWA)*self.sim.TargetList.dist).to('AU').value
-        smax = (np.tan(self.sim.OpticalSystem.OWA)*self.sim.TargetList.dist).to('AU').value
+        smin = (np.tan(mode['IWA'])*self.sim.TargetList.dist).to('AU').value
+        smax = (np.tan(mode['OWA'])*self.sim.TargetList.dist).to('AU').value
         smax[smax>amax] = amax
     
         # include only stars where smin > amin
@@ -194,8 +195,7 @@ class DoSFuncs(object):
         
         # calculate integration times
         sInds = np.arange(self.sim.TargetList.nStars)
-        # select detection mode
-        mode = filter(lambda mode: mode['detectionMode'] == True, self.sim.OpticalSystem.observingModes)[0]
+        
         # calculate maximum integration time
         t_int = self.sim.OpticalSystem.calc_intTime(self.sim.TargetList, sInds, fZ, fEZ, dMag, WA_targ, mode)
         
@@ -205,16 +205,14 @@ class DoSFuncs(object):
         smin = smin[cutoff]
         smax = smax[cutoff]
         t_int = t_int[cutoff]
-        
+
         print 'Beginning ck calculations'
-        # calculate ck
         ck = self.find_ck(amin,amax,smin,smax,Cmin,pexp,Rexp)
         # offset to account for zero ck values with nonzero completeness
         ck += ck[ck>0.0].min()*1e-2
         print 'Finished ck calculations'
         
         print 'Beginning ortools calculations to determine list of observed stars'
-        # use ortools to select observed stars
         sInds = self.select_obs(t_int.to('day').value,maxTime,ck)
         print 'Finished ortools calculations'
         # include only stars chosen for observation
@@ -225,7 +223,6 @@ class DoSFuncs(object):
         ck = ck[sInds]
         
         # get contrast array for given integration times
-        WA = np.linspace(self.sim.OpticalSystem.IWA, self.sim.OpticalSystem.OWA, 50)
         sInds2 = np.arange(self.sim.TargetList.nStars)
         C_inst = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int,self.sim.TargetList,sInds2,fZ,fEZ,WA,mode))
         # find which are M K G F stars
@@ -246,11 +243,11 @@ class DoSFuncs(object):
         self.result['NumObs'] = NumObs
         # find bin edges for semi-major axis and planetary radius in AU
         aedges = np.logspace(np.log10(amin), np.log10(amax), abins+1)
-        Redges = np.logspace(np.log10(Rmin*const.R_earth.to('AU').value), \
-                         np.log10(Rmax*const.R_earth.to('AU').value), Rbins+1)
+        Redges = np.logspace(np.log10(Rmin*u.earthRad.to('AU')), \
+                         np.log10(Rmax*u.earthRad.to('AU')), Rbins+1)
         # store aedges and Redges in result
         self.result['aedges'] = aedges
-        self.result['Redges'] = Redges/const.R_earth.to('AU').value
+        self.result['Redges'] = Redges/u.earthRad.to('AU')
     
         aa, RR = np.meshgrid(aedges,Redges) # in AU
     
@@ -294,7 +291,7 @@ class DoSFuncs(object):
         rates = pickle.load(open(directory+'/Mulders.ocr','rb'))
     
         # values from Mulders
-        Redges /= const.R_earth.to('AU').value     
+        Redges /= u.earthRad.to('AU')     
         Periods = rates['PeriodEdges']*u.day
         Radii = rates['RpEdges']
         dP = np.log10(Periods[1:]/Periods[:-1]).decompose().value
@@ -306,27 +303,27 @@ class DoSFuncs(object):
         print 'Extrapolating occurrence rates for M stars'
         occ_rates['Mstars'] = self.find_occurrence(0.35*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['MstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.adist,amin)
+                              self.sim.PlanetPopulation.dist_sma,amin)
         print 'Extrapolating occurrence rates for K stars'
         occ_rates['Kstars'] = self.find_occurrence(0.70*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['KstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.adist,amin)
+                              self.sim.PlanetPopulation.dist_sma,amin)
         print 'Extrapolating occurrence rates for G stars'
         occ_rates['Gstars'] = self.find_occurrence(0.91*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['GstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.adist,amin)
+                              self.sim.PlanetPopulation.dist_sma,amin)
         print 'Extrapolating occurrence rates for F stars'
         occ_rates['Fstars'] = self.find_occurrence(1.08*const.M_sun,ddP,ddR,Radii,\
                  Periods,rates['FstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.adist,amin)
+                              self.sim.PlanetPopulation.dist_sma,amin)
         self.result['occ_rates'] = occ_rates
           
-        # perform convolution of depth of search with occurrence rates
+        # Multiply depth of search with occurrence rates
         r_norm = Redges[1:] - Redges[:-1]
         a_norm = aedges[1:] - aedges[:-1]
         norma, normR = np.meshgrid(a_norm,r_norm)
         DoS_occ = {}
-        print 'Convolving depth of search with occurrence rates'
+        print 'Multiplying depth of search grid with occurrence rate grid'
         DoS_occ['Mstars'] = DoS['Mstars']*occ_rates['Mstars']*norma*normR
         DoS_occ['Kstars'] = DoS['Kstars']*occ_rates['Kstars']*norma*normR
         DoS_occ['Gstars'] = DoS['Gstars']*occ_rates['Gstars']*norma*normR
@@ -336,7 +333,7 @@ class DoSFuncs(object):
         
         # store MissionSim output specification dictionary
         self.outspec = self.sim.genOutSpec()
-        self.ck = ck
+        print 'Calculations finished'
     
     def one_DoS_grid(self,a,R,p,smin,smax,Cmin):
         '''Calculates completeness for one star on constant semi-major axis--
@@ -399,12 +396,16 @@ class DoSFuncs(object):
         al = a[smax>=a]
         Rl = R[smax>=a]
         Clmin = Cmin[smax>=a]
-    
-        b1l = np.arcsin(smin/al)
-        b2l = np.pi-np.arcsin(smin/al)
-
-        C1l = np.nan_to_num((p*(Rl/al)**2*np.cos(b1l/2.0)**4))
-        C2l = np.nan_to_num((p*(Rl/al)**2*np.cos(b2l/2.0)**4))
+        
+        b1l = np.zeros(al.shape)
+        b1l[smin/al < 1.0] = np.arcsin(smin/al[smin/al < 1.0])
+        b2l = np.pi*np.ones(al.shape)
+        b2l[smin/al < 1.0] = np.pi-np.arcsin(smin/al[smin/al < 1.0])
+        
+        C1l = np.ones(al.shape)
+        C1l[smin/al < 1.0] = p*(Rl[smin/al < 1.0]/al[smin/al < 1.0])**2*np.cos(b1l[smin/al < 1.0]/2.0)**4
+        C2l = np.ones(al.shape)
+        C2l[smin/al < 1.0] = p*(Rl[smin/al < 1.0]/al[smin/al < 1.0])**2*np.cos(b2l[smin/al < 1.0]/2.0)**4
 
         C2l[C2l<Clmin] = Clmin[C2l<Clmin]
         vals = C2l > C1l
@@ -482,25 +483,27 @@ class DoSFuncs(object):
         
         DoS = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         for i in xrange(len(smin)):
-            Cs = interpolate.interp1d(WA, C_inst[i], kind='cubic', fill_value=1.0)
+            Cs = interpolate.InterpolatedUnivariateSpline(WA, C_inst[i], k=1,ext=3)
             Cmin = np.zeros(a.shape)
             # expected value of Cmin calculations for each separation
             for j in xrange(len(a)):
                 if a[j] < smin[i]:
                     Cmin[j] = 1.0
                 else:
-                    f = lambda s: Cs(s/dist[i])*s/(a[j]**2*np.sqrt(1.0-(s/a[j])**2))
                     if a[j] > smax[i]:
                         su = smax[i]
                     else:
                         su = a[j]
                     # find expected value of minimum contrast from contrast curve
-                    val,err = integrate.quad(f,smin[i],su,epsabs=0,epsrel=1e-3,limit=100)
-                    den = np.sqrt(1.0-(smin[i]/a[j])**2) - np.sqrt(1.0-(su/a[j])**2)
-                    Cmin[j] = val/den
-
-            Cmin,RR = np.meshgrid(Cmin,R)
-            DoS += self.one_DoS_bins(aa,RR,pexp,smin[i],smax[i],Cmin)
+                    tup = np.sqrt(1.0-(smin[i]/a[j])**2)
+                    tlow = np.sqrt(1.0-(su/a[j])**2)
+                    f = lambda t,a=a[j],d=dist[i]: Cs(a*np.sqrt(1.0-t**2)/d)
+                    val = integrate.quad(f, tlow, tup, epsabs=0,epsrel=1e-3,limit=100)[0]
+                    Cmin[j] = val/(tup - tlow)
+                    
+            CC,RR = np.meshgrid(Cmin,R)
+            tmp = self.one_DoS_bins(aa,RR,pexp,smin[i],smax[i],CC)
+            DoS += tmp
         
         return DoS
 
@@ -566,11 +569,6 @@ class DoSFuncs(object):
                 au2 = lambda k: sol3(k,smax[i])
                 al2 = lambda k: sol4(k,smax[i])
                 
-                al1 = np.vectorize(al1)
-                au1 = np.vectorize(au1)
-                au2 = np.vectorize(au2)
-                al2 = np.vectorize(al2)
-                
                 f12 = lambda k: anp[i]/(2.0*np.sqrt(k))*(amax - al1(k))
                 f23 = lambda k: anp[i]/(2.0*np.sqrt(k))*(au2(k) - al1(k))
                 f34 = lambda k: anp[i]/(2.0*np.sqrt(k))*(amax - al2(k) + au2(k) - al1(k))
@@ -582,68 +580,66 @@ class DoSFuncs(object):
                 
                 if k4[i] < k5[i]:
                     if kmin < k1[i]:
-                        ck[i] = integrate.quad(f12,k1[i],k2[i],limit=100)[0]
+                        ck[i] = integrate.quad(f12,k1[i],k2[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                         if k2[i] != k3[i]:
-                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=100)[0]
-                        ck[i] += integrate.quad(f34,k3[i],k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=100)[0]
+                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f34,k3[i],k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k1[i]) and (kmin < k2[i]):
-                        ck[i] = integrate.quad(f12,kmin,k2[i],limit=100)[0]
+                        ck[i] = integrate.quad(f12,kmin,k2[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                         if k2[i] != k3[i]:
-                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=100)[0]
-                        ck[i] += integrate.quad(f34,k3[i],k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=100)[0]
+                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f34,k3[i],k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k2[i]) and (kmin < k3[i]):
-                        ck[i] = integrate.quad(f23,kmin,k3[i],limit=100)[0]
-                        ck[i] += integrate.quad(f34,k3[i],k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f23,kmin,k3[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f34,k3[i],k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k3[i]) and (kmin < k4[i]):
-                        ck[i] = integrate.quad(f34,kmin,k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f34,kmin,k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f45,k4[i],k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k4[i]) and (kmin < k5[i]):
-                        ck[i] = integrate.quad(f45,kmin,k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f45,kmin,k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f56,k5[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin < k6[i]):
-                        ck[i] = integrate.quad(f56,kmin,k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f56,kmin,k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     else:
                         ck[i] = 0.0
-#                        print 'kmin: %r / k6: %r' % (kmin,k6[i])
                 else:
                     if kmin < k1[i]:
-                        ck[i] = integrate.quad(f12,k1[i],k2[i],limit=100)[0]
+                        ck[i] = integrate.quad(f12,k1[i],k2[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                         if k2[i] != k3[i]:
-                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=100)[0]
-                        ck[i] += integrate.quad(f35,k3[i],k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=100)[0]
+                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f35,k3[i],k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k1[i]) and (kmin < k2[i]):
-                        ck[i] = integrate.quad(f12,kmin,k2[i],limit=100)[0]
+                        ck[i] = integrate.quad(f12,kmin,k2[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                         if k2[i] != k3[i]:
-                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=100)[0]
-                        ck[i] += integrate.quad(f35,k3[i],k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=100)[0]
+                            ck[i] += integrate.quad(f23,k2[i],k3[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f35,k3[i],k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k2[i]) and (kmin < k3[i]):
-                        ck[i] = integrate.quad(f23,kmin,k3[i],limit=100)[0]
-                        ck[i] += integrate.quad(f35,k3[i],k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f23,kmin,k3[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f35,k3[i],k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k3[i]) and (kmin < k5[i]):
-                        ck[i] = integrate.quad(f35,kmin,k5[i],limit=100)[0]
-                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f35,kmin,k5[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f54,k5[i],k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin > k5[i]) and (kmin < k4[i]):
-                        ck[i] = integrate.quad(f54,kmin,k4[i],limit=100)[0]
-                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f54,kmin,k4[i],limit=50,epsabs=0,epsrel=1e-4)[0]
+                        ck[i] += integrate.quad(f46,k4[i],k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     elif (kmin < k6[i]):
-                        ck[i] = integrate.quad(f46,kmin,k6[i],limit=100)[0]
+                        ck[i] = integrate.quad(f46,kmin,k6[i],limit=50,epsabs=0,epsrel=1e-4)[0]
                     else:
                         ck[i] = 0.0
-#                        print 'kmin: %r / k6: %r' % (kmin,k6[i])
                 
         return ck
 
@@ -663,7 +659,7 @@ class DoSFuncs(object):
                 1D array of star indices selected for observation
         
         '''
-        
+
         #set up solver
         solver = pywraplp.Solver('SolveIntegerProblem',pywraplp.Solver.CBC_MIXED_INTEGER_PROGRAMMING)
         #need one var per state
@@ -860,8 +856,9 @@ class DoSFuncs(object):
         '''
         
         x = {'Results': self.result, 'outspec': self.outspec}
-        pickle.dump(x, open(path,'wb'))
-        print 'Results saved as '+path
+        with open(path,'wb') as f:
+            pickle.dump(x, f)
+            print 'Results saved as '+path
         
     def save_json(self, path):
         '''Saves json file used to generate results to disk
