@@ -5,7 +5,6 @@ This Python package calculates the depth of search on a grid of semi-major axis 
 
 - ```numpy```
 - ```os```
-- ```copy```
 - ```sympy```
 - ```scipy```
 - ```astropy```
@@ -17,12 +16,10 @@ This Python package calculates the depth of search on a grid of semi-major axis 
 Unless the EXOSIMS default contrast value is desired, a fits file or constant value must be supplied for ```'core_contrast'``` in the json script file used to generate the ```EXOSIMS.MissionSim``` object.
 
 ### ```DoSFuncs``` class object initialization and attributes
-One of ```path``` or ```sim``` MUST be passed to DoSFuncs to return depth of search results.
 
 ##### ```DoSFuncs``` class object arguments:
 
 - ```path``` -> path to a json script file used to generate an ```EXOSIMS.MissionSim``` object
-- ```sim``` -> EXOSIMS.MissionSim object
 - ```abins``` -> number of semi-major axis bins for grid (optional-default is 100)
 - ```Rbins``` -> number of planetary radius bins for grid (optional-default is 30)
 - ```maxTime``` -> maximum total integration time in days (optional-default is 365)
@@ -34,10 +31,10 @@ One of ```path``` or ```sim``` MUST be passed to DoSFuncs to return depth of sea
 - ```result``` -> dictionary containing results of depth of search calculations with the following keys:
   - ```'aedges'``` -> 1D ```numpy.ndarray``` containing bin edges of logarithmically spaced grid for semi-major axis in AU
   - ```'Redges'``` -> 1D ```numpy.ndarray``` containing bin edges of logarithmically spaced grid for planetary radius in R_earth
-  - ```'NumObs'``` -> dictionary containing number of stars observed for each stellar type, keys include ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```
-  - ```'DoS'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search values on grid corresponding to semi-major axis and planetary radius bins for each stellar type, keys include ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```
-  - ```'occ_rates'``` -> dictionary containing 2D ```numpy.ndarray``` of occurrence rates extrapolated from Mulders 2015 on grid corresponding to semi-major axis and planetary radius bins for each stellar type, keys include ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, and ```'Fstars'```
-  - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type, keys include ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```
+  - ```'NumObs'``` -> dictionary containing number of stars observed for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
+  - ```'DoS'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search values on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
+  - ```'occ_rates'``` -> dictionary containing 2D ```numpy.ndarray``` of occurrence rates extrapolated from Mulders 2015 or Kepler-like distribution on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
+  - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
 - ```sim``` -> ```EXOSIMS.MissionSim``` object used to generate the target list and integration times
 - ```outspec``` -> dictionary containing ```EXOSIMS.MissionSim``` output specifications
 - ```ck``` -> list of ck metric values
