@@ -37,7 +37,6 @@ Unless the EXOSIMS default contrast value is desired, a fits file or constant va
   - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
 - ```sim``` -> ```EXOSIMS.MissionSim``` object used to generate the target list and integration times
 - ```outspec``` -> dictionary containing ```EXOSIMS.MissionSim``` output specifications
-- ```ck``` -> list of ck metric values
 
 ### ```DoSFuncs``` Methods
 
