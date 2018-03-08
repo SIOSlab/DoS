@@ -4,16 +4,13 @@ Created on Tues June 20, 2017
 
 @author: dg622@cornell.edu
 """
-# IWA and OWA should use detection mode values
+
 import numpy as np
 import EXOSIMS.MissionSim as MissionSim
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 import scipy.optimize as optimize
-#import astropy.constants as const
 import astropy.units as u
-#import sympy
-#from sympy.solvers import solve
 
 from DoSFuncs import DoSFuncs
 
@@ -21,11 +18,11 @@ class DoSFuncsKepler(DoSFuncs):
     '''Calculates depth of search values for a given input EXOSIMS json script 
     or instantiated EXOSIMS.MissionSim object. 
     
-    path or sim must be specified but not both
+    path must be specified
     
     NOTE: This is intended for use with KeplerLike1 or KeplerLike2 
-    PlanetPopulation modules from EXOSIMS. The occurrence rates used to 
-    convolve with the depth of search grid come from the Kepler distribution.
+    PlanetPopulation modules from EXOSIMS. The occurrence rates come from the 
+    Kepler distribution.
     
     Args:
         path (str):
@@ -46,25 +43,19 @@ class DoSFuncsKepler(DoSFuncs):
             dictionary containing results of the depth of search calculations
             Keys include:
                 NumObs (dict):
-                    dictionary containing number of observations for each 
-                    stellar type, keys are: 'Mstars', 'Kstars', 'Gstars', 
-                    'Fstars', and 'Entire'
+                    dictionary containing number of observations, key is: 'all'
                 aedges (ndarray):
                     1D array of semi-major axis bin edges in AU
                 Redges (ndarray):
                     1D array of planetary radius bin edges in R_earth
                 DoS (dict):
-                    dictionary containing 2D arrays of depth of search for
-                    each stellar type, keys are: 'Mstars', 'Kstars', 'Gstars',
-                    'Fstars', and 'Entire'
+                    dictionary containing 2D array of depth of search, key is: 'all'
                 occ_rates (dict):
-                    dictionary containing 2D arrays of occurrence rates
-                    extrapolated from Mulders 2015, keys are: 'Mstars', 'Kstars',
-                    'Gstars', and 'Fstars'
+                    dictionary containing 2D array of occurrence rates from 
+                    Kepler distribution, key is: 'all'
                 DoS_occ (dict):
-                    dictionary containing 2D arrays of depth of search convolved
-                    with the extrapolated occurrence rates, keys are: 'Mstars',
-                    'Kstars', 'Gstars', 'Fstars', and 'Entire'
+                    dictionary containing 2D array of depth of search convolved
+                    with the extrapolated occurrence rates, key is: 'all'
         sim (object):
             EXOSIMS.MissionSim object used to generate target list and 
             integration times
@@ -107,9 +98,9 @@ class DoSFuncsKepler(DoSFuncs):
         lam = mode['lam']
         if dMag is None:
             # use dMagComp or dMagLim when dMag not specified
-            dMag = self.sim.Completeness.dMagComp if self.sim.Completeness.dMagComp is not None else self.sim.OpticalSystem.dMagLim
-        fZ = self.sim.ZodiacalLight.fZ0
-        fEZ = self.sim.ZodiacalLight.fEZ0
+            dMag = self.sim.Completeness.dMagLim
+        fZ = np.array([self.sim.ZodiacalLight.fZ0.value])*self.sim.ZodiacalLight.fZ0.unit
+        fEZ = np.array([self.sim.ZodiacalLight.fEZ0.value])*self.sim.ZodiacalLight.fEZ0.unit
         if WA_targ is None:
             core_contrast = syst['core_contrast'](lam,WA)
             contrast = interpolate.interp1d(WA.to('arcsec').value, core_contrast, \
@@ -123,15 +114,25 @@ class DoSFuncsKepler(DoSFuncs):
             WA_targ = opt.x*u.arcsec
         
         t_int1 = self.sim.OpticalSystem.calc_intTime(self.sim.TargetList,0,fZ,fEZ,dMag,WA_targ,mode)
-        core_contrast = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int1,self.sim.TargetList,np.array([0]),fZ,fEZ,WA,mode))
+        t_int1 = np.repeat(t_int1.value,len(WA))*t_int1.unit
+        sInds = np.repeat(0,len(WA))
+        fZ1 = np.repeat(fZ.value,len(WA))*fZ.unit
+        fEZ1 = np.repeat(fEZ.value,len(WA))*fEZ.unit
+        core_contrast = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int1,self.sim.TargetList,sInds,fZ1,fEZ1,WA,mode))
         contrast = interpolate.interp1d(WA.to('arcsec').value,core_contrast,kind='cubic',fill_value=1.0)
         opt = optimize.minimize_scalar(contrast,bounds=[mode['IWA'].to('arcsec').value,mode['OWA'].to('arcsec').value],method='bounded')
         Cmin = opt.fun
         
         # find expected values of p and R
         if self.sim.PlanetPopulation.prange[0] != self.sim.PlanetPopulation.prange[1]:
-            f = lambda p: p*self.sim.PlanetPopulation.dist_albedo(p)
-            pexp, err = integrate.quad(f,self.sim.PlanetPopulation.prange[0],\
+            if hasattr(self.sim.PlanetPopulation,'ps'):
+                f = lambda R: self.sim.PlanetPopulation.get_p_from_Rp(R*u.earthRad)*self.sim.PlanetPopulation.dist_radius(R)
+                pexp, err = integrate.quad(f,self.sim.PlanetPopulation.Rprange[0].value,\
+                                           self.sim.PlanetPopulation.Rprange[1].value,\
+                                           epsabs=0,epsrel=1e-6,limit=100)
+            else:
+                f = lambda p: p*self.sim.PlanetPopulation.dist_albedo(p)
+                pexp, err = integrate.quad(f,self.sim.PlanetPopulation.prange[0],\
                                        self.sim.PlanetPopulation.prange[1],\
                                         epsabs=0,epsrel=1e-6,limit=100)
         else:
@@ -196,7 +197,14 @@ class DoSFuncsKepler(DoSFuncs):
         
         # get contrast array for given integration times
         sInds2 = np.arange(self.sim.TargetList.nStars)
-        C_inst = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int,self.sim.TargetList,sInds2,fZ,fEZ,WA,mode))
+        C_inst = np.zeros((len(sInds2),len(WA)))
+        fZ2 = np.repeat(fZ.value,len(WA))*fZ.unit
+        fEZ2 = np.repeat(fEZ.value,len(WA))*fEZ.unit
+        C_inst = np.zeros((len(sInds2),len(WA)))
+        for i in xrange(len(sInds2)):
+            t_int2 = np.repeat(t_int[i].value,len(WA))*t_int.unit
+            sInds2a = np.repeat(sInds2[i],len(WA))
+            C_inst[i,:] = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int2,self.sim.TargetList,sInds2a,fZ2,fEZ2,WA,mode))
         # store number of observed stars in result
         self.result['NumObs'] = {"all": self.sim.TargetList.nStars}
         print 'Number of observed targets: %r' % self.sim.TargetList.nStars
