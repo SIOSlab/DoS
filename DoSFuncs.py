@@ -5,7 +5,7 @@ Updated Fri June 16, 2017
 
 @author: dg622@cornell.edu
 """
-# IWA and OWA should use detection mode values
+
 import numpy as np
 import os
 import EXOSIMS.MissionSim as MissionSim
@@ -23,19 +23,16 @@ except:
 from ortools.linear_solver import pywraplp
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-#from memory_profiler import profile
 
 class DoSFuncs(object):
-    '''Calculates depth of search values for a given input EXOSIMS json script 
-    or instantiated EXOSIMS.MissionSim object. Only stellar types M, K, G, and 
-    F are used. All other stellar types are filtered out. Occurrence rates are 
-    extrapolated from data in Mulders 2015.
+    '''Calculates depth of search values for a given input EXOSIMS json script. 
+    Occurrence rates are determined from the EXOSIMS PlanetPopulation specified.
     
     'core_contrast' must be specified in the input json script as either a 
     path to a fits file or a constant value, otherwise the default contrast 
     value from EXOSIMS will be used
     
-    path or sim must be specified but not both
+    path must be specified
     
     Args:
         path (str):
@@ -58,25 +55,19 @@ class DoSFuncs(object):
             dictionary containing results of the depth of search calculations
             Keys include:
                 NumObs (dict):
-                    dictionary containing number of observations for each 
-                    stellar type, keys are: 'Mstars', 'Kstars', 'Gstars', 
-                    'Fstars', and 'Entire'
+                    dictionary containing number of observations, key is: 'all' 
                 aedges (ndarray):
                     1D array of semi-major axis bin edges in AU
                 Redges (ndarray):
                     1D array of planetary radius bin edges in R_earth
                 DoS (dict):
-                    dictionary containing 2D arrays of depth of search for
-                    each stellar type, keys are: 'Mstars', 'Kstars', 'Gstars',
-                    'Fstars', and 'Entire'
+                    dictionary containing 2D array of depth of search key is: 'all'
                 occ_rates (dict):
-                    dictionary containing 2D arrays of occurrence rates
-                    extrapolated from Mulders 2015, keys are: 'Mstars', 'Kstars',
-                    'Gstars', and 'Fstars'
+                    dictionary containing 2D array of occurrence rates determined
+                    from EXOSIMS PlanetPopulation, key is: 'all'
                 DoS_occ (dict):
-                    dictionary containing 2D arrays of depth of search convolved
-                    with the extrapolated occurrence rates, keys are: 'Mstars',
-                    'Kstars', 'Gstars', 'Fstars', and 'Entire'
+                    dictionary containing 2D array of depth of search convolved
+                    with the extrapolated occurrence rates, keys is: 'all',
         sim (object):
             EXOSIMS.MissionSim object used to generate target list and 
             integration times
@@ -125,8 +116,8 @@ class DoSFuncs(object):
         syst = mode['syst']
         lam = mode['lam']
         if dMag is None:
-            # use dMagComp or dMagLim when dMag not specified
-            dMag = self.sim.Completeness.dMagComp if self.sim.Completeness.dMagComp is not None else self.sim.OpticalSystem.dMagLim
+            # use dMagLim when dMag not specified
+            dMag = self.sim.Completeness.dMagLim
         fZ = self.sim.ZodiacalLight.fZ0
         fEZ = self.sim.ZodiacalLight.fEZ0
         if WA_targ is None:
@@ -142,15 +133,25 @@ class DoSFuncs(object):
             WA_targ = opt.x*u.arcsec
         
         t_int1 = self.sim.OpticalSystem.calc_intTime(self.sim.TargetList,np.array([0]),fZ,fEZ,dMag,WA_targ,mode)
-        core_contrast = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int1,self.sim.TargetList,np.array([0]),fZ,fEZ,WA,mode))
+        t_int1 = np.repeat(t_int1.value,len(WA))*t_int1.unit
+        sInds = np.repeat(0,len(WA))
+        fZ1 = np.repeat(fZ.value,len(WA))*fZ.unit
+        fEZ1 = np.repeat(fEZ.value,len(WA))*fEZ.unit
+        core_contrast = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int1,self.sim.TargetList,sInds,fZ1,fEZ1,WA,mode))
         contrast = interpolate.interp1d(WA.to('arcsec').value,core_contrast,kind='cubic',fill_value=1.0)
         opt = optimize.minimize_scalar(contrast,bounds=[mode['IWA'].to('arcsec').value,mode['OWA'].to('arcsec').value],method='bounded')
         Cmin = opt.fun
         
         # find expected values of p and R
         if self.sim.PlanetPopulation.prange[0] != self.sim.PlanetPopulation.prange[1]:
-            f = lambda p: p*self.sim.PlanetPopulation.dist_albedo(p)
-            pexp, err = integrate.quad(f,self.sim.PlanetPopulation.prange[0],\
+            if hasattr(self.sim.PlanetPopulation,'ps'):
+                f = lambda R: self.sim.PlanetPopulation.get_p_from_Rp(R*u.earthRad)*self.sim.PlanetPopulation.dist_radius(R)
+                pexp, err = integrate.quad(f,self.sim.PlanetPopulation.Rprange[0].value,\
+                                           self.sim.PlanetPopulation.Rprange[1].value,\
+                                           epsabs=0,epsrel=1e-6,limit=100)
+            else:
+                f = lambda p: p*self.sim.PlanetPopulation.dist_albedo(p)
+                pexp, err = integrate.quad(f,self.sim.PlanetPopulation.prange[0],\
                                        self.sim.PlanetPopulation.prange[1],\
                                         epsabs=0,epsrel=1e-6,limit=100)
         else:
@@ -165,17 +166,6 @@ class DoSFuncs(object):
         else:
             Rexp = self.sim.PlanetPopulation.Rprange[0].to('AU').value
         
-        # include only F G K M stars
-        spec = np.array(map(str, self.sim.TargetList.Spec))
-        iF = np.where(np.core.defchararray.startswith(spec, 'F'))[0]
-        iG = np.where(np.core.defchararray.startswith(spec, 'G'))[0]
-        iK = np.where(np.core.defchararray.startswith(spec, 'K'))[0]
-        iM = np.where(np.core.defchararray.startswith(spec, 'M'))[0]
-        i = np.append(np.append(iF, iG), iK)
-        i = np.append(i,iM)
-        i = np.unique(i)
-        self.sim.TargetList.revise_lists(i)
-        print 'Filtered target stars to only include M, K, G, and F type'
         # minimum and maximum separations
         smin = (np.tan(mode['IWA'])*self.sim.TargetList.dist).to('AU').value
         smax = (np.tan(mode['OWA'])*self.sim.TargetList.dist).to('AU').value
@@ -224,23 +214,18 @@ class DoSFuncs(object):
         
         # get contrast array for given integration times
         sInds2 = np.arange(self.sim.TargetList.nStars)
-        C_inst = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int,self.sim.TargetList,sInds2,fZ,fEZ,WA,mode))
-        # find which are M K G F stars
-        spec = np.array(map(str, self.sim.TargetList.Spec))
-        Mlist = np.where(np.core.defchararray.startswith(spec, 'M'))[0]
-        Klist = np.where(np.core.defchararray.startswith(spec, 'K'))[0]
-        Glist = np.where(np.core.defchararray.startswith(spec, 'G'))[0]
-        Flist = np.where(np.core.defchararray.startswith(spec, 'F'))[0]
-        print '%r M stars observed' % (len(Mlist))
-        print '%r K stars observed' % (len(Klist))
-        print '%r G stars observed' % (len(Glist))
-        print '%r F stars observed' % (len(Flist))
-        print '%r total stars observed' % (len(Mlist)+len(Klist)+len(Glist)+len(Flist))
-        NumObs = {'Mstars':len(Mlist), 'Kstars':len(Klist), 'Gstars':len(Glist),\
-              'Fstars':len(Flist), 'Entire':(len(Mlist)+len(Klist)+len(Glist)\
-                           +len(Flist))}
+        fZ2 = np.repeat(fZ.value,len(WA))*fZ.unit
+        fEZ2 = np.repeat(fEZ.value,len(WA))*fEZ.unit
+        C_inst = np.zeros((len(sInds2),len(WA)))
+        for i in xrange(len(sInds2)):
+            t_int2 = np.repeat(t_int[i].value,len(WA))*t_int.unit
+            sInds2a = np.repeat(sInds2[i],len(WA))
+            C_inst[i,:] = 10.0**(-0.4*self.sim.OpticalSystem.calc_dMag_per_intTime(t_int2,self.sim.TargetList,sInds2a,fZ2,fEZ2,WA,mode))
+        
         # store number of observed stars in result
-        self.result['NumObs'] = NumObs
+        self.result['NumObs'] = {"all": self.sim.TargetList.nStars}
+        print 'Number of observed targets: %r' % self.sim.TargetList.nStars
+
         # find bin edges for semi-major axis and planetary radius in AU
         aedges = np.logspace(np.log10(amin), np.log10(amax), abins+1)
         Redges = np.logspace(np.log10(Rmin*u.earthRad.to('AU')), \
@@ -251,85 +236,43 @@ class DoSFuncs(object):
     
         aa, RR = np.meshgrid(aedges,Redges) # in AU
     
-        # get depth of search for each stellar type
-        DoS = {}
-        print 'Beginning depth of search calculations for observed M stars'
-        if len(Mlist) > 0:
-            DoS['Mstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Mlist], \
-               smax[Mlist], self.sim.TargetList.dist[Mlist].to('pc').value, C_inst[Mlist,:], WA)
+        # get depth of search 
+        print 'Beginning depth of search calculations for observed stars'
+        if self.sim.TargetList.nStars > 0:
+            DoS = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin, smax, \
+                           self.sim.TargetList.dist.to('pc').value, C_inst, WA.to('arcsecond').value)
         else:
-            DoS['Mstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
-        print 'Finished depth of search calculations for observed M stars'
-        print 'Beginning depth of search calculations for observed K stars'
-        if len(Klist) > 0:
-            DoS['Kstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Klist], \
-               smax[Klist], self.sim.TargetList.dist[Klist].to('pc').value, C_inst[Klist,:], WA)
-        else:
-            DoS['Kstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
-        print 'Finished depth of search calculations for observed K stars'
-        print 'Beginning depth of search calculations for observed G stars'
-        if len(Glist) > 0:
-            DoS['Gstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Glist], \
-               smax[Glist], self.sim.TargetList.dist[Glist].to('pc').value, C_inst[Glist,:], WA)
-        else:
-            DoS['Gstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
-        print 'Finished depth of search calculations for observed G stars'
-        print 'Beginning depth of search calculations for observed F stars'
-        if len(Flist) > 0:
-            DoS['Fstars'] = self.DoS_sum(aedges, aa, Redges, RR, pexp, smin[Flist], \
-               smax[Flist], self.sim.TargetList.dist[Flist].to('pc').value, C_inst[Flist,:], WA)
-        else:
-            DoS['Fstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
-        print 'Finished depth of search calculations for observed F stars'
-        DoS['Entire'] = DoS['Mstars'] + DoS['Kstars'] + DoS['Gstars'] + DoS['Fstars']
+            DoS = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
+        print 'Finished depth of search calculations'
         # store DoS in result
-        self.result['DoS'] = DoS
-    
-        # load occurrence data from file
-        print 'Loading occurrence data'
-        directory = os.path.dirname(os.path.abspath(__file__))
-        rates = pickle.load(open(directory+'/Mulders.ocr','rb'))
-    
-        # values from Mulders
-        Redges /= u.earthRad.to('AU')     
-        Periods = rates['PeriodEdges']*u.day
-        Radii = rates['RpEdges']
-        dP = np.log10(Periods[1:]/Periods[:-1]).decompose().value
-        dR = np.log10(Radii[1:]/Radii[:-1])
-        ddP, ddR = np.meshgrid(dP, dR)
-    
-        # extrapolate occurrence values to new grid
-        occ_rates = {}
-        print 'Extrapolating occurrence rates for M stars'
-        occ_rates['Mstars'] = self.find_occurrence(0.35*const.M_sun,ddP,ddR,Radii,\
-                 Periods,rates['MstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
-        print 'Extrapolating occurrence rates for K stars'
-        occ_rates['Kstars'] = self.find_occurrence(0.70*const.M_sun,ddP,ddR,Radii,\
-                 Periods,rates['KstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
-        print 'Extrapolating occurrence rates for G stars'
-        occ_rates['Gstars'] = self.find_occurrence(0.91*const.M_sun,ddP,ddR,Radii,\
-                 Periods,rates['GstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
-        print 'Extrapolating occurrence rates for F stars'
-        occ_rates['Fstars'] = self.find_occurrence(1.08*const.M_sun,ddP,ddR,Radii,\
-                 Periods,rates['FstarsMean'],aedges,Redges,\
-                              self.sim.PlanetPopulation.dist_sma,amin)
-        self.result['occ_rates'] = occ_rates
-          
-        # Multiply depth of search with occurrence rates
+        self.result['DoS'] = {"all": DoS}
+        
+        # find occurrence rate grid
+        Redges /= u.earthRad.to('AU')
+        etas = np.zeros((len(Redges)-1,len(aedges)-1))
+        # get joint pdf of semi-major axis and radius
+        if hasattr(self.sim.PlanetPopulation,'dist_sma_radius'):
+            func = lambda a,R: self.sim.PlanetPopulation.dist_sma_radius(a,R)
+        else:
+            func = lambda a,R: self.sim.PlanetPopulation.dist_sma(a)*self.sim.PlanetPopulation.dist_radius(R)
+        aa, RR = np.meshgrid(aedges,Redges)
         r_norm = Redges[1:] - Redges[:-1]
         a_norm = aedges[1:] - aedges[:-1]
         norma, normR = np.meshgrid(a_norm,r_norm)
-        DoS_occ = {}
+        tmp = func(aa,RR)
+        etas = 0.25*(tmp[:-1,:-1]+tmp[1:,:-1]+tmp[:-1,1:]+tmp[1:,1:])*norma*normR
+#        for i in xrange(len(Redges)-1):
+#            print('{} out of {}'.format(i+1,len(Redges)-1))
+#            for j in xrange(len(aedges)-1):
+#                etas[i,j] = integrate.dblquad(func,Redges[i],Redges[i+1],lambda x: aedges[j],lambda x: aedges[j+1])[0]
+        etas *= self.sim.PlanetPopulation.eta
+        self.result['occ_rates'] = {"all": etas}
+        
+        # Multiply depth of search with occurrence rates
+        
         print 'Multiplying depth of search grid with occurrence rate grid'
-        DoS_occ['Mstars'] = DoS['Mstars']*occ_rates['Mstars']*norma*normR
-        DoS_occ['Kstars'] = DoS['Kstars']*occ_rates['Kstars']*norma*normR
-        DoS_occ['Gstars'] = DoS['Gstars']*occ_rates['Gstars']*norma*normR
-        DoS_occ['Fstars'] = DoS['Fstars']*occ_rates['Fstars']*norma*normR
-        DoS_occ['Entire'] = DoS_occ['Mstars']+DoS_occ['Kstars']+DoS_occ['Gstars']+DoS_occ['Fstars']
-        self.result['DoS_occ'] = DoS_occ
+        DoS_occ = DoS*etas*norma*normR
+        self.result['DoS_occ'] = {"all": DoS_occ}
         
         # store MissionSim output specification dictionary
         self.outspec = self.sim.genOutSpec()
@@ -683,69 +626,6 @@ class DoSFuncs(object):
         
         return sInds
 
-    def find_occurrence(self,Mass,ddP,ddR,R,P,Matrix,aedges,Redges,fa,amin):
-        '''Extrapolates occurrence rates from Mulders 2015
-        
-        Args:
-            Mass (Quantity):
-                Stellar type mass astropy Quantity in kg
-            ddP (ndarray):
-                2D array of log differences in period (days) from Mulders
-            ddR (ndarray):
-                2D array of log differences in planetary radius (R_earth) from Mulders
-            R (ndarray):
-                1D array of planetary radius values from Mulders
-            P (Quantity):
-                1D array of period values astropy Quantity in days from Mulders
-            Matrix (ndarray):
-                2D array of occurrence rates from Mulders
-            aedges (ndarray):
-                1D array of desired semi-major axis grid in AU
-            Redges (ndarray):
-                1D array of desired planetary radius grid in R_earth
-            fa (callable):
-                probability density function of semi-major axis
-            amin (float):
-                minimum semi-major axis in AU
-        
-        Returns:
-            etas (ndarray):
-                2D array of extrapolated occurrence rates
-        
-        '''
-        
-        sma = ((const.G*Mass*P**2/(4.0*np.pi**2))**(1.0/3.0)).decompose().to('AU').value
-        
-        occ = Matrix*ddP*ddR
-        occAll = np.sum(occ, axis=1)
-        
-        etas = np.zeros((len(Redges)-1,len(aedges)-1))
-        fac1 = integrate.quad(fa, amin, sma[-1])[0]
-        # occurrence rate as function of R
-        Rvals = np.zeros((len(Redges)-1,))
-        for i in xrange(len(Redges)-1):
-            for j in xrange(len(R)):
-                if Redges[i] < R[j]:
-                    break
-            for k in xrange(len(R)):
-                if Redges[i+1] < R[k]:
-                    break
-            if k-j == 0:
-                Rvals[i] = (Redges[i+1]-Redges[i])/(R[j]-R[j-1])*occAll[j-1]
-            elif k-j == 1:
-                Rvals[i] = (R[j]-Redges[i])/(R[j]-R[j-1])*occAll[j-1]
-                Rvals[i] += (Redges[i+1]-R[j])/(R[j+1]-R[j])*occAll[j]
-            else:
-                Rvals[i] = (R[j]-Redges[i])/(R[j]-R[j-1])*occAll[j-1]
-                Rvals[i] += np.sum(occAll[j:k-1])
-                Rvals[i] += (Redges[i+1]-R[k-1])/(R[k]-R[k-1])*occAll[k-1]
-        
-        # extrapolate to new grid
-        for i in xrange(len(aedges)-1):
-            fac2 = integrate.quad(fa, aedges[i], aedges[i+1])[0]
-            etas[:,i] = Rvals*fac2/fac1
-        
-        return etas
 
     def plot_dos(self,targ,name,path=None):
         '''Plots depth of search as a filled contour plot with contour lines
