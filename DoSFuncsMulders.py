@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tues March 7, 2018
-Updated 
+Updated Mon Oct 22, 2018
 
 @author: dg622@cornell.edu
 """
@@ -9,8 +9,6 @@ Updated
 import numpy as np
 import os
 import EXOSIMS.MissionSim as MissionSim
-import sympy
-from sympy.solvers import solve
 import scipy.integrate as integrate
 import scipy.interpolate as interpolate
 import scipy.optimize as optimize
@@ -20,10 +18,6 @@ try:
     import cPickle as pickle
 except:
     import pickle
-from ortools.linear_solver import pywraplp
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-
 from DoSFuncs import DoSFuncs
 
 class DoSFuncsMulders(DoSFuncs):

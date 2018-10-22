@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Feb 1, 2017
-Updated Fri June 16, 2017
+Updated Mon Oct 22, 2018
 
 @author: dg622@cornell.edu
 """
@@ -674,7 +674,7 @@ class DoSFuncs(object):
         ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
             fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
-        fig.show()
+        plt.show()
 
     def plot_nplan(self,targ,name,path=None):
         '''Plots depth of search convolved with occurrence rates as a filled 
@@ -724,7 +724,7 @@ class DoSFuncs(object):
         ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
             fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
-        fig.show()
+        plt.show()
     
     def save_results(self, path):
         '''Saves results and outspec dictionaries to disk
@@ -786,5 +786,3 @@ class DoSFuncs(object):
         # save DoS_occ
         for key in self.result['DoS_occ'].keys():
             np.savetxt(directory+'/DoS_occ_'+key+'.csv', self.result['DoS_occ'][key], delimiter=', ')
-            
-        
