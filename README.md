@@ -31,10 +31,10 @@ Unless the EXOSIMS default contrast value is desired, a fits file or constant va
 - ```result``` -> dictionary containing results of depth of search calculations with the following keys:
   - ```'aedges'``` -> 1D ```numpy.ndarray``` containing bin edges of logarithmically spaced grid for semi-major axis in AU
   - ```'Redges'``` -> 1D ```numpy.ndarray``` containing bin edges of logarithmically spaced grid for planetary radius in R_earth
-  - ```'NumObs'``` -> dictionary containing number of stars observed for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
-  - ```'DoS'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search values on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
-  - ```'occ_rates'``` -> dictionary containing 2D ```numpy.ndarray``` of occurrence rates extrapolated from Mulders 2015 or Kepler-like distribution on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
-  - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'Entire'```; ```DoSFuncsKepler``` keys include: ```'all'```)
+  - ```'NumObs'``` -> dictionary containing number of stars observed for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
+  - ```'DoS'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search values on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
+  - ```'occ_rates'``` -> dictionary containing 2D ```numpy.ndarray``` of occurrence rates extrapolated from Mulders 2015 or Kepler-like distribution on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
+  - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
 - ```sim``` -> ```EXOSIMS.MissionSim``` object used to generate the target list and integration times
 - ```outspec``` -> dictionary containing ```EXOSIMS.MissionSim``` output specifications
 
@@ -46,7 +46,7 @@ Methods for quickly displaying depth of search results and saving them to disk a
 Plots the depth of search as a filled contour plot with contour lines (color in log scale)
 
 Args:
-- ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'Entire')
+- ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'all')
 - ```name``` -> string indicating what to include in figure title (e.g., 'All Stars')
 - ```path``` -> string for path to save figure as pdf to disk (optional) (e.g., '.../DoS.pdf')
 
@@ -84,6 +84,6 @@ Results are saved as:
 - '.../aedges.csv'
 - '.../Redges.csv'
 - '.../NumObs.csv'
-- '.../DoS_Entire.csv', etc
+- '.../DoS_all.csv', etc
 - '.../occ_rates_Mstars.csv', etc
 - '.../DoS_occ_Gstars.csv', etc

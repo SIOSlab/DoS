@@ -60,7 +60,7 @@ class DoSFuncsMulders(DoSFuncs):
                 NumObs (dict):
                     dictionary containing number of observations for each 
                     stellar type, keys are: 'Mstars', 'Kstars', 'Gstars', 
-                    'Fstars', and 'Entire'
+                    'Fstars', and 'all'
                 aedges (ndarray):
                     1D array of semi-major axis bin edges in AU
                 Redges (ndarray):
@@ -68,7 +68,7 @@ class DoSFuncsMulders(DoSFuncs):
                 DoS (dict):
                     dictionary containing 2D arrays of depth of search for
                     each stellar type, keys are: 'Mstars', 'Kstars', 'Gstars',
-                    'Fstars', and 'Entire'
+                    'Fstars', and 'all'
                 occ_rates (dict):
                     dictionary containing 2D arrays of occurrence rates
                     extrapolated from Mulders 2015, keys are: 'Mstars', 'Kstars',
@@ -76,7 +76,7 @@ class DoSFuncsMulders(DoSFuncs):
                 DoS_occ (dict):
                     dictionary containing 2D arrays of depth of search convolved
                     with the extrapolated occurrence rates, keys are: 'Mstars',
-                    'Kstars', 'Gstars', 'Fstars', and 'Entire'
+                    'Kstars', 'Gstars', 'Fstars', and 'all'
         sim (object):
             EXOSIMS.MissionSim object used to generate target list and 
             integration times
@@ -254,7 +254,7 @@ class DoSFuncsMulders(DoSFuncs):
         print '%r F stars observed' % (len(Flist))
         print '%r total stars observed' % (len(Mlist)+len(Klist)+len(Glist)+len(Flist))
         NumObs = {'Mstars':len(Mlist), 'Kstars':len(Klist), 'Gstars':len(Glist),\
-              'Fstars':len(Flist), 'Entire':(len(Mlist)+len(Klist)+len(Glist)\
+              'Fstars':len(Flist), 'all':(len(Mlist)+len(Klist)+len(Glist)\
                            +len(Flist))}
         # store number of observed stars in result
         self.result['NumObs'] = NumObs
@@ -298,7 +298,7 @@ class DoSFuncsMulders(DoSFuncs):
         else:
             DoS['Fstars'] = np.zeros((aa.shape[0]-1,aa.shape[1]-1))
         print 'Finished depth of search calculations for observed F stars'
-        DoS['Entire'] = DoS['Mstars'] + DoS['Kstars'] + DoS['Gstars'] + DoS['Fstars']
+        DoS['all'] = DoS['Mstars'] + DoS['Kstars'] + DoS['Gstars'] + DoS['Fstars']
         # store DoS in result
         self.result['DoS'] = DoS
     
@@ -345,7 +345,7 @@ class DoSFuncsMulders(DoSFuncs):
         DoS_occ['Kstars'] = DoS['Kstars']*occ_rates['Kstars']*norma*normR
         DoS_occ['Gstars'] = DoS['Gstars']*occ_rates['Gstars']*norma*normR
         DoS_occ['Fstars'] = DoS['Fstars']*occ_rates['Fstars']*norma*normR
-        DoS_occ['Entire'] = DoS_occ['Mstars']+DoS_occ['Kstars']+DoS_occ['Gstars']+DoS_occ['Fstars']
+        DoS_occ['all'] = DoS_occ['Mstars']+DoS_occ['Kstars']+DoS_occ['Gstars']+DoS_occ['Fstars']
         self.result['DoS_occ'] = DoS_occ
         
         # store MissionSim output specification dictionary
