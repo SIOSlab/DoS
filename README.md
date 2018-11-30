@@ -1,7 +1,12 @@
 # DoS
-Depth of Search
+Depth-of-Search
 
-This Python package calculates the depth of search on a grid of semi-major axis and planetary radius for a selected target list. The ```DoSFuncs``` class object requires the following packages:
+This Python package calculates the depth-of-search on a grid of semi-major axis and planetary radius for a selected target list. 
+
+The ```Scripts``` folder contains examples of how to calculate depth-of-search with and without the ```DoSFuncs``` class object.
+See the individual scripts for a description of their use.
+
+The ```DoSFuncs``` class object requires the following packages:
 
 - ```numpy```
 - ```os```
@@ -28,33 +33,33 @@ Unless the EXOSIMS default contrast value is desired, a fits file or constant va
 
 ##### ```DoSFuncs``` class object attributes:
 
-- ```result``` -> dictionary containing results of depth of search calculations with the following keys:
+- ```result``` -> dictionary containing results of depth-of-search calculations with the following keys:
   - ```'aedges'``` -> 1D ```numpy.ndarray``` containing bin edges of logarithmically spaced grid for semi-major axis in AU
   - ```'Redges'``` -> 1D ```numpy.ndarray``` containing bin edges of logarithmically spaced grid for planetary radius in R_earth
   - ```'NumObs'``` -> dictionary containing number of stars observed for each stellar type (```DoSFuncs``` key is ```'all'```, ```DoSFuncsMulders``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
-  - ```'DoS'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search values on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` key is ```'all'```, ```DoSFuncsMulders``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
+  - ```'DoS'``` -> dictionary containing 2D ```numpy.ndarray``` of depth-of-search values on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` key is ```'all'```, ```DoSFuncsMulders``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
   - ```'occ_rates'``` -> dictionary containing 2D ```numpy.ndarray``` of occurrence rates from EXOSIMS (or extrapolated from Mulders 2015 with ```DoSFuncsMulders```) on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` key is ```'all'```, ```DoSFuncsMulders``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
-  - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth of search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` key is ```'all'```, ```DoSFuncsMulders``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
+  - ```'DoS_occ'``` -> dictionary containing 2D ```numpy.ndarray``` of depth-of-search convolved with occurrence rates on grid corresponding to semi-major axis and planetary radius bins for each stellar type (```DoSFuncs``` key is ```'all'```, ```DoSFuncsMulders``` keys include: ```'Mstars'```, ```'Kstars'```, ```'Gstars'```, ```'Fstars'```, and ```'all'```)
 - ```sim``` -> ```EXOSIMS.MissionSim``` object used to generate the target list and integration times
 - ```outspec``` -> dictionary containing ```EXOSIMS.MissionSim``` output specifications
 
 ### ```DoSFuncs``` Methods
 
-Methods for quickly displaying depth of search results and saving them to disk are also included.
+Methods for quickly displaying depth-of-search results and saving them to disk are also included.
 
 ##### ```plot_dos```
-Plots the depth of search as a filled contour plot with contour lines (color in log scale)
+Plots the depth-of-search as a filled contour plot with contour lines (color in log scale)
 
 Args:
-- ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'all')
+- ```targ``` -> string indicating which key to access from depth-of-search result dictionary (e.g., 'all')
 - ```name``` -> string indicating what to include in figure title (e.g., 'All Stars')
 - ```path``` -> string for path to save figure as pdf to disk (optional) (e.g., '.../DoS.pdf')
 
 ##### ```plot_nplan```
-Plots the depth of search convolved with occurrence rates as a filled contour plot with contour lines (color in log scale)
+Plots the depth-of-search convolved with occurrence rates as a filled contour plot with contour lines (color in log scale)
 
 Args:
-- ```targ``` -> string indicating which key to access from depth of search result dictionary (e.g., 'Mstars')
+- ```targ``` -> string indicating which key to access from depth-of-search result dictionary (e.g., 'Mstars')
 - ```name``` -> string indicating what to include in figure title (e.g., 'M Stars')
 - ```path``` -> string for path to save figure as pdf to disk (optional) (e.g., '.../nplan.pdf')
 

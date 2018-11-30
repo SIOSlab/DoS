@@ -1,5 +1,9 @@
 from DoS.DoSFuncs import DoSFuncs
 
+"""
+Calculates depth-of-search using the DoSFuncs object and the sample script sampleScript_coron.json
+for EXOSIMS. Plots for depth-of-search and expected planets are produced.
+"""
 # use modified sample script from EXOSIMS
 path = './sampleScript_coron.json'
 
