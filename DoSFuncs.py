@@ -21,7 +21,13 @@ try:
 except:
     import pickle
 from ortools.linear_solver import pywraplp
-import matplotlib.pyplot as plt
+import os
+if not 'DISPLAY' in os.environ.keys(): #Check environment for keys
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt 
+else:
+    import matplotlib.pyplot as plt 
 import matplotlib.ticker as ticker
 
 class DoSFuncs(object):
@@ -81,7 +87,7 @@ class DoSFuncs(object):
             raise ValueError('path must be specified')
         if path is not None:
             # generate EXOSIMS.MissionSim object to calculate integration times
-            self.sim = MissionSim.MissionSim(scriptfile=path)
+            self.sim = MissionSim.MissionSim(scriptfile=path, nopar=True)
             print 'Acquired EXOSIMS data from %r' % (path)
         if dMag is not None:
             try:
@@ -674,7 +680,7 @@ class DoSFuncs(object):
         ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
             fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
-        plt.show()
+        plt.show(block=False)
 
     def plot_nplan(self,targ,name,path=None):
         '''Plots depth of search convolved with occurrence rates as a filled 
@@ -724,7 +730,7 @@ class DoSFuncs(object):
         ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
             fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
-        plt.show()
+        plt.show(block=False)
     
     def save_results(self, path):
         '''Saves results and outspec dictionaries to disk
