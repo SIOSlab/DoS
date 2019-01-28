@@ -205,7 +205,8 @@ class DoSFuncs(object):
         print 'Beginning ck calculations'
         ck = self.find_ck(amin,amax,smin,smax,Cmin,pexp,Rexp)
         # offset to account for zero ck values with nonzero completeness
-        ck += ck[ck>0.0].min()*1e-2
+        if len(ck[ck>0.0]) > 0: # skips if there are no positive values???
+            ck += ck[ck>0.0].min()*1e-2
         print 'Finished ck calculations'
         
         print 'Beginning ortools calculations to determine list of observed stars'
