@@ -679,7 +679,9 @@ class DoSFuncs(object):
         cbar = fig.colorbar(cs)
         ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
-            fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(path + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(path + '.eps', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(path + '.svg', dpi=600, bbox_inches='tight', pad_inches=0.1)
         plt.show(block=False)
 
     def plot_nplan(self,targ,name,path=None):
@@ -729,7 +731,9 @@ class DoSFuncs(object):
         cbar = fig.colorbar(cs)
         ax.clabel(cs2, fmt=ticker.LogFormatterMathtext(), colors='k')
         if path != None:
-            fig.savefig(path, format='pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(path + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(path + '.eps', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(path + '.svg', dpi=600, bbox_inches='tight', pad_inches=0.1)
         plt.show(block=False)
     
     def save_results(self, path):
