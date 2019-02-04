@@ -683,6 +683,7 @@ class DoSFuncs(object):
             fig.savefig(path + '.png', dpi=600, bbox_inches='tight', pad_inches=0.1)
             fig.savefig(path + '.eps', dpi=600, bbox_inches='tight', pad_inches=0.1)
             fig.savefig(path + '.svg', dpi=600, bbox_inches='tight', pad_inches=0.1)
+            fig.savefig(path + '.pdf', dpi=600, bbox_inches='tight', pad_inches=0.1)
         plt.show(block=False)
 
     def plot_nplan(self,targ,name,path=None):
